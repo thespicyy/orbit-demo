@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<script src="demo/guard.js"></script>
+<style>#hub-bot-card{display:none!important;} .demo-badge{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);z-index:9999;font-family:Inter,system-ui,sans-serif;font-size:12px;font-weight:600;color:#fff;background:rgba(236,72,153,0.16);border:1px solid rgba(236,72,153,0.45);border-radius:100px;padding:7px 16px;letter-spacing:.02em;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);white-space:nowrap;pointer-events:none;} .demo-badge b{color:#f9a8d4;}</style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Orbit</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'><circle cx='50' cy='50' r='38' stroke='%23a78bfa' stroke-width='4'/><circle cx='50' cy='50' r='13' fill='%238b5cf6'/><circle cx='69' cy='17.09' r='9' fill='%23f3f1fa'/></svg>"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@700&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#07071a;font-family:'Inter',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;font-variant-numeric:tabular-nums;}
+
+#constellation-canvas{
+  position:fixed;top:0;left:0;
+  width:100%;height:100%;
+  z-index:0;
+  pointer-events:none;
+}
+
+nav{
+  display:flex;align-items:center;gap:12px;
+  padding:16px 28px;
+  background:rgba(7,7,26,0.4);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  border-bottom:1px solid rgba(255,255,255,0.08);
+  z-index:10;
+  /* Flotte au-dessus du contenu de l'onglet actif (iframe pleine hauteur en
+     dessous) au lieu de pousser ce contenu plus bas — la transparence révèle
+     ainsi vraiment ce qui se trouve sous elle, propre à chaque onglet. */
+  position:fixed;
+  top:0; left:0; right:0;
+  /* La nav étant par-dessus l'iframe, ses zones vides bloqueraient sinon la
+     souris (mousemove n'atteint plus le fond réactif de l'app en dessous) :
+     on désactive les événements pointeur sur la barre elle-même, et on les
+     réactive explicitement sur chaque élément réellement cliquable. */
+  pointer-events:none;
+}
+/* Seuls les éléments réellement interactifs récupèrent les événements —
+   PAS les div-espaceurs "flex:1" ni #hub-stats (texte non cliquable), qui
+   occupent la majorité de la largeur de la barre et doivent laisser passer
+   la souris vers le fond de l'app en dessous. */
+.orbit-menu-wrap, .nav-tabs, .app-toggle-btn, #tdl-settings-btn, .hub-bot-card {
+  pointer-events:auto;
+}
+
+.nav-label{
+  font-family:'Syne',sans-serif;
+  font-size:13px;font-weight:700;
+  color:rgba(255,255,255,0.22);
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  margin-right:8px;
+}
+
+.nav-btn{
+  display:flex;align-items:center;gap:7px;
+  padding:6px 16px;
+  border-radius:8px;
+  border:1px solid rgba(255,255,255,0.1);
+  background:transparent;
+  color:rgba(255,255,255,0.4);
+  font-family:'Inter',sans-serif;
+  font-size:13px;font-weight:500;
+  cursor:pointer;
+  transition:all 0.18s ease;
+}
+.nav-btn:hover{
+  background:rgba(255,255,255,0.07);
+  border-color:rgba(255,255,255,0.2);
+  color:rgba(255,255,255,0.85);
+}
+.nav-btn.active{
+  background:rgba(255,255,255,0.1);
+  border-color:rgba(255,255,255,0.28);
+  color:#ffffff;
+}
+.nav-btn .dot{
+  width:6px;height:6px;border-radius:50%;
+  background:rgba(255,255,255,0.2);
+  transition:background 0.18s;
+}
+.nav-btn.active .dot{background:rgba(255,255,255,0.75);}
+
+/* ── BOT MINI-CARD ───────────────────────────────────── */
+.hub-bot-card{
+  display:flex; align-items:center; gap:9px;
+  padding:6px 12px;
+  border-radius:10px;
+  background:rgba(245,158,11,0.07);
+  border:1px solid rgba(245,158,11,0.22);
+  transition:background .4s, border-color .4s, box-shadow .4s;
+  position:relative; overflow:hidden;
+}
+/* shimmer top */
+.hub-bot-card::before{
+  content:'';position:absolute;top:0;left:8%;right:8%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1) 50%,transparent);
+  pointer-events:none;
+}
+.hub-bot-card.is-online{
+  background:rgba(16,185,129,0.07);
+  border-color:rgba(16,185,129,0.28);
+  box-shadow:0 0 14px rgba(16,185,129,0.07);
+}
+.hub-bot-card.is-offline{
+  background:rgba(239,68,68,0.06);
+  border-color:rgba(239,68,68,0.22);
+}
+
+.hub-bot-dot{
+  width:7px; height:7px; border-radius:50%; flex-shrink:0;
+  background:rgba(245,158,11,0.7);
+  transition:background .4s, box-shadow .4s;
+}
+.hub-bot-dot.online {
+  background:#10b981;
+  box-shadow:0 0 6px rgba(16,185,129,0.7);
+  animation:none;
+}
+.hub-bot-dot.offline{
+  background:#ef4444;
+  box-shadow:0 0 5px rgba(239,68,68,0.6);
+}
+.hub-bot-dot.loading{
+  background:#f59e0b;
+  box-shadow:0 0 6px rgba(245,158,11,0.6);
+  animation:hub-pulse 1s ease-in-out infinite;
+}
+@keyframes hub-pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+.hub-bot-name{
+  font-size:10px; font-weight:700; letter-spacing:1.5px;
+  text-transform:uppercase; color:rgba(255,255,255,0.45);
+  font-family:'Inter',sans-serif;
+}
+.hub-bot-status{
+  font-size:11px; font-weight:600;
+  color:rgba(245,158,11,0.75);
+  min-width:60px; transition:color .35s;
+}
+.hub-bot-status.online { color:#10b981; }
+.hub-bot-status.offline{ color:#ef4444; }
+.hub-bot-status.loading{ color:#f59e0b; }
+
+.hub-bot-sep{
+  width:1px; height:18px;
+  background:rgba(255,255,255,0.08);
+  flex-shrink:0;
+}
+
+.hub-bot-btn{
+  width:28px; height:28px;
+  border-radius:8px; border:1px solid; flex-shrink:0;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:background .15s, border-color .15s;
+}
+.hub-bot-btn--start{
+  background:rgba(16,185,129,0.1);
+  border-color:rgba(16,185,129,0.3);
+  color:#10b981;
+}
+.hub-bot-btn--start:hover{background:rgba(16,185,129,0.22);border-color:rgba(16,185,129,0.55);}
+.hub-bot-btn--stop{
+  background:rgba(239,68,68,0.08);
+  border-color:rgba(239,68,68,0.28);
+  color:#ef4444;
+}
+.hub-bot-btn--stop:hover{background:rgba(239,68,68,0.2);border-color:rgba(239,68,68,0.55);}
+.hub-bot-btn--restart{
+  background:rgba(245,158,11,0.08);
+  border-color:rgba(245,158,11,0.28);
+  color:#f59e0b;
+}
+.hub-bot-btn--restart:hover{background:rgba(245,158,11,0.2);border-color:rgba(245,158,11,0.55);}
+.hub-bot-btn:disabled{opacity:.3;cursor:not-allowed;}
+.hub-bot-btn svg{display:block;}
+
+/* ─────────────────────────────────────────────────────── */
+
+/* ── Background décoratif partagé ── */
+.h-orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0;transform:translateZ(0);}
+.h-orb-1{width:900px;height:900px;top:-380px;right:-280px;background:radial-gradient(circle,rgba(255,255,255,0.13) 0%,rgba(200,180,255,0.07) 28%,rgba(120,80,255,0.04) 50%,transparent 68%);filter:blur(55px);}
+.h-orb-2{width:700px;height:600px;bottom:-250px;left:-200px;background:radial-gradient(ellipse,rgba(109,40,217,0.2) 0%,rgba(80,30,180,0.07) 50%,transparent 72%);filter:blur(80px);}
+.h-orb-3{width:480px;height:420px;bottom:-100px;right:10%;background:radial-gradient(ellipse,rgba(6,182,212,0.12) 0%,transparent 68%);filter:blur(70px);}
+.h-orb-4{width:600px;height:260px;top:0;left:50%;transform:translateX(-50%) translateZ(0);background:radial-gradient(ellipse at 50% 0%,rgba(80,50,200,0.1) 0%,transparent 70%);filter:blur(60px);}
+.h-stars{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(1px 1px at 7% 11%,rgba(255,255,255,0.5) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 18% 68%,rgba(255,255,255,0.3) 0%,transparent 100%),radial-gradient(1px 1px at 28% 6%,rgba(255,255,255,0.4) 0%,transparent 100%),radial-gradient(1px 1px at 39% 53%,rgba(255,255,255,0.25) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 51% 28%,rgba(255,255,255,0.35) 0%,transparent 100%),radial-gradient(1px 1px at 61% 84%,rgba(255,255,255,0.3) 0%,transparent 100%),radial-gradient(1px 1px at 67% 17%,rgba(255,255,255,0.4) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 75% 62%,rgba(255,255,255,0.25) 0%,transparent 100%),radial-gradient(1px 1px at 84% 4%,rgba(255,255,255,0.45) 0%,transparent 100%),radial-gradient(1px 1px at 91% 47%,rgba(255,255,255,0.3) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 95% 85%,rgba(255,255,255,0.35) 0%,transparent 100%),radial-gradient(1px 1px at 13% 38%,rgba(255,255,255,0.2) 0%,transparent 100%),radial-gradient(1px 1px at 44% 91%,rgba(255,255,255,0.28) 0%,transparent 100%),radial-gradient(1px 1px at 56% 9%,rgba(255,255,255,0.38) 0%,transparent 100%);}
+.h-sweep{position:fixed;pointer-events:none;z-index:0;width:900px;height:160px;top:0;right:5%;background:radial-gradient(ellipse at 60% 50%,rgba(180,160,255,0.14) 0%,rgba(100,80,255,0.06) 45%,transparent 72%);filter:blur(45px);transform:rotate(-22deg);border-radius:50%;}
+
+.frames{flex:1;position:relative;z-index:1;}
+
+iframe{
+  position:absolute;inset:0;
+  width:100%;height:100%;
+  border:none;
+  visibility:hidden;
+  pointer-events:none;
+  opacity:0;
+}
+iframe.visible{
+  visibility:visible;
+  pointer-events:auto;
+  opacity:1;
+}
+
+/* ── Orbit logo ── */
+@keyframes orbit-spin { to { transform: rotate(360deg); } }
+.orbit-mark .orbit-dot {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: orbit-spin 7s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .orbit-mark .orbit-dot { animation: none; }
+}
+.orbit-logo { display: inline-flex; align-items: center; gap: 10px; }
+.orbit-mark { filter: drop-shadow(0 0 12px rgba(139, 92, 246, 0.55)); }
+.orbit-wordmark {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  background: linear-gradient(120deg, #ffffff, #a78bfa);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 16px rgba(139, 92, 246, 0.42));
+}
+
+/* ── Menu logo Orbit (bascule vers un autre onglet) ── */
+.orbit-menu-wrap{position:relative;}
+.orbit-logo-btn{background:none;border:none;padding:0;margin:0;cursor:pointer;display:inline-flex;}
+.orbit-menu{
+  position:absolute;top:calc(100% + 10px);left:0;min-width:190px;
+  background:rgba(13,12,35,0.97);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,0.12);border-radius:12px;padding:6px;
+  display:none;flex-direction:column;gap:2px;
+  box-shadow:0 20px 50px rgba(0,0,0,0.5);z-index:50;
+}
+.orbit-menu.open{display:flex;}
+.orbit-menu-item{
+  display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:8px;
+  border:none;background:transparent;color:rgba(255,255,255,0.75);
+  font-family:'Inter',sans-serif;font-size:13.5px;font-weight:500;
+  cursor:pointer;text-align:left;transition:background 0.15s ease,color 0.15s ease;
+}
+.orbit-menu-item:hover{background:rgba(255,255,255,0.08);color:#fff;}
+.orbit-menu-item svg{width:16px;height:16px;opacity:0.8;flex-shrink:0;}
+[data-theme="light"] .orbit-menu{background:rgba(248,246,255,0.97);border-color:rgba(0,0,0,0.1);}
+[data-theme="light"] .orbit-menu-item{color:rgba(0,0,0,0.65);}
+[data-theme="light"] .orbit-menu-item:hover{background:rgba(0,0,0,0.06);color:#000;}
+
+/* ── Séparateur vertical ── */
+.nav-sep {
+  width: 1px; height: 26px;
+  background: rgba(255,255,255,0.1);
+  margin: 0 6px;
+  flex-shrink: 0;
+}
+
+/* ── Onglets de navigation trading ── */
+.nav-tabs { display: flex; gap: 2px; }
+
+.nav-tab {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 16px;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255,255,255,0.62);
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px; font-weight: 500;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+.nav-tab:hover {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.7);
+}
+.nav-tab.active {
+  background: rgba(124,58,237,0.18);
+  border-color: rgba(139,92,246,0.3);
+  color: #c4b5fd;
+}
+.nav-tab svg { width: 15px; height: 15px; flex-shrink: 0; opacity: 0.7; }
+.nav-tab.active svg { opacity: 1; }
+
+/* ── Bouton toggle Trading / Budget ── */
+.app-toggle-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px;
+  border-radius: 11px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: all 0.16s ease;
+  flex-shrink: 0;
+}
+.app-toggle-btn:hover {
+  background: rgba(255,255,255,0.09);
+  color: rgba(255,255,255,0.85);
+  border-color: rgba(255,255,255,0.22);
+}
+
+/* ── Stats pills trading ── */
+.hub-stats { display: flex; gap: 7px; align-items: center; flex-shrink: 0; }
+.hub-stat {
+  display: flex; flex-direction: column; align-items: center;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px;
+  padding: 6px 14px;
+  min-width: 74px;
+}
+.hub-stat .lbl {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.07em;
+  text-transform: uppercase; color: rgba(255,255,255,0.45);
+  white-space: nowrap;
+}
+.hub-stat .val { font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.8); }
+.hub-stat .val.pos { color: #10b981; }
+.hub-stat .val.neg { color: #ef4444; }
+.hub-stat .val.neu { color: rgba(255,255,255,0.8); }
+.hub-stat--portfolio {
+  border-color: rgba(6,182,212,0.22);
+  background: rgba(6,182,212,0.05);
+  min-width: 104px;
+}
+.hub-stat--portfolio .val { color: #06b6d4; }
+
+/* Hub P&L pixel masking handled by JS */
+
+/* ── Accessibilité clavier — anneau de focus visible uniquement au clavier ── */
+.nav-tab:focus-visible,
+.app-toggle-btn:focus-visible,
+.hub-bot-btn:focus-visible,
+.orbit-logo-btn:focus-visible,
+.orbit-menu-item:focus-visible {
+  outline: 2px solid rgba(167,139,250,0.9);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ── Light mode ── */
+[data-theme="light"] body { background: #f4f3ff; }
+[data-theme="light"] nav {
+  background: rgba(248,246,255,0.92);
+  border-bottom-color: rgba(124,58,237,0.13);
+}
+[data-theme="light"] .nav-sep { background: rgba(0,0,0,0.1); }
+[data-theme="light"] .orbit-wordmark {
+  background: linear-gradient(120deg,#1e1060,#7c3aed);
+  -webkit-background-clip: text; background-clip: text;
+}
+[data-theme="light"] .nav-tab { color: rgba(0,0,0,0.45); }
+[data-theme="light"] .nav-tab:hover { background: rgba(0,0,0,0.05); color: rgba(0,0,0,0.75); border-color: rgba(0,0,0,0.1); }
+[data-theme="light"] .nav-tab.active { background: rgba(124,58,237,0.1); border-color: rgba(124,58,237,0.3); color: #7c3aed; }
+[data-theme="light"] .nav-tab.active svg { opacity: 1; }
+[data-theme="light"] .hub-stat { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.08); }
+[data-theme="light"] .hub-stat .lbl { color: rgba(0,0,0,0.35); }
+[data-theme="light"] .hub-stat .val { color: rgba(0,0,0,0.8); }
+[data-theme="light"] .hub-stat--portfolio { border-color: rgba(6,182,212,0.3); background: rgba(6,182,212,0.06); }
+[data-theme="light"] .app-toggle-btn { border-color: rgba(0,0,0,0.1); background: rgba(0,0,0,0.04); color: rgba(0,0,0,0.45); }
+[data-theme="light"] .app-toggle-btn:hover { background: rgba(0,0,0,0.08); border-color: rgba(0,0,0,0.18); color: rgba(0,0,0,0.8); }
+[data-theme="light"] .hub-bot-card { background: rgba(245,158,11,0.05); border-color: rgba(245,158,11,0.2); }
+[data-theme="light"] .hub-bot-card.is-online { background: rgba(16,185,129,0.05); border-color: rgba(16,185,129,0.22); }
+[data-theme="light"] .hub-bot-card.is-offline { background: rgba(239,68,68,0.04); border-color: rgba(239,68,68,0.18); }
+[data-theme="light"] .hub-bot-name { color: rgba(0,0,0,0.4); }
+[data-theme="light"] .hub-bot-sep { background: rgba(0,0,0,0.1); }
+[data-theme="light"] #constellation-canvas { opacity: 0.25; }
+[data-theme="light"] .h-orb-1,.h-orb-2,.h-orb-3,.h-orb-4 { opacity: 0.3; }
+[data-theme="light"] .h-stars { opacity: 0.15; }
+</style>
+</head>
+<body>
+
+<canvas id="constellation-canvas"></canvas>
+<div class="h-orb h-orb-1"></div>
+<div class="h-orb h-orb-2"></div>
+<div class="h-orb h-orb-3"></div>
+<div class="h-orb h-orb-4"></div>
+<div class="h-stars"></div>
+<div class="h-sweep"></div>
+
+<nav aria-label="Navigation principale">
+  <div class="orbit-menu-wrap">
+    <button class="orbit-logo-btn" id="orbit-menu-btn" onclick="toggleAppMenu()" aria-haspopup="true" aria-expanded="false" title="Changer d'application">
+      <span class="orbit-logo" style="font-size:22px;">
+        <svg class="orbit-mark" viewBox="0 0 100 100" width="32" height="32" fill="none" aria-hidden="true">
+          <circle cx="50" cy="50" r="38" stroke="#a78bfa" stroke-width="3.5"></circle>
+          <circle cx="50" cy="50" r="12" fill="#8b5cf6"></circle>
+          <g class="orbit-dot"><circle cx="50" cy="12" r="8" fill="#f3f1fa"></circle></g>
+        </svg>
+        <span class="orbit-wordmark" style="font-size:1em">Orbit</span>
+      </span>
+    </button>
+    <div class="orbit-menu" id="orbit-menu"></div>
+  </div>
+
+  <div class="nav-sep"></div>
+
+  <div class="nav-tabs" id="nav-trading-tabs">
+    <button class="nav-tab active" data-tab="dashboard" onclick="hubSwitchTab('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-tab" data-tab="journal" onclick="hubSwitchTab('journal')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+      Journal
+    </button>
+    <button class="nav-tab" data-tab="analytics" onclick="hubSwitchTab('analytics')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Analyses
+    </button>
+    <button class="nav-tab" data-tab="export" onclick="hubSwitchTab('export')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Données
+    </button>
+  </div>
+
+  <div class="nav-tabs" id="nav-budget-tabs" style="display:none">
+    <button class="nav-tab active" data-tab="dashboard" onclick="switchBudgetTab('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-tab" data-tab="budget" onclick="switchBudgetTab('budget')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 0 1 0 8h-1"/></svg>
+      Budget
+    </button>
+    <button class="nav-tab" data-tab="comptes" onclick="switchBudgetTab('comptes')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      Comptes
+    </button>
+    <button class="nav-tab" data-tab="actifs" onclick="switchBudgetTab('actifs')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Actifs
+    </button>
+    <button class="nav-tab" data-tab="ops" onclick="switchBudgetTab('ops')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Opérations
+    </button>
+    <button class="nav-tab" data-tab="projection" onclick="switchBudgetTab('projection')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      Projection
+    </button>
+  </div>
+
+  <div class="nav-tabs" id="nav-tdl-tabs" style="display:none">
+    <button class="nav-tab" data-tab="temps" onclick="switchTdlTab('temps')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      Temps
+    </button>
+    <button class="nav-tab" data-tab="schedule" onclick="switchTdlTab('schedule')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Planning
+    </button>
+    <button class="nav-tab active" data-tab="tasks" onclick="switchTdlTab('tasks')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Tâches
+    </button>
+  </div>
+
+  <div class="nav-tabs" id="nav-polymarket-tabs" style="display:none">
+    <button class="nav-tab active" data-tab="polymarket" onclick="return false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>
+      Polymarket
+    </button>
+  </div>
+
+  <div style="flex:1"></div>
+  <div id="hub-stats" class="hub-stats">
+    <div class="hub-stat"><span class="lbl">Trades</span><span class="val neu" id="hs-total">–</span></div>
+    <div class="hub-stat"><span class="lbl">Win Rate</span><span class="val neu" id="hs-wr">–</span></div>
+    <div class="hub-stat"><span class="lbl">P&L</span><span class="val neu" id="hs-pnl">–</span></div>
+    <div class="hub-stat"><span class="lbl">Avg RR</span><span class="val neu" id="hs-rr">–</span></div>
+    <div class="hub-stat hub-stat--portfolio"><span class="lbl">Portefeuille</span><span class="val" id="hs-portfolio">–</span></div>
+  </div>
+  <div style="flex:1"></div>
+  <button class="app-toggle-btn" id="tdl-settings-btn" style="display:none" onclick="openTdlSettings()" title="Réglages du fond animé (TDL)" aria-label="Réglages du fond animé de TDL">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+  <button class="app-toggle-btn" id="polymarket-settings-btn" style="display:none" onclick="openPolymarketSettings()" title="Réglages du fond animé (Polymarket)" aria-label="Réglages du fond animé de Polymarket">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  </button>
+  <button class="app-toggle-btn" onclick="toggleApp()" title="Basculer Trading / Budget" aria-label="Basculer entre Trading et Budget">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" aria-hidden="true">
+      <path d="M7 16V4m0 0L3 8m4-4 4 4"/>
+      <path d="M17 8v12m0 0 4-4m-4 4-4-4"/>
+    </svg>
+  </button>
+  <div class="hub-bot-card" id="hub-bot-card" title="Contrôle du bot Hyperliquid">
+      <span class="hub-bot-dot" id="hub-bot-dot"></span>
+      <span class="hub-bot-name">HyperLiquid</span>
+      <span class="hub-bot-status loading" id="hub-bot-status">—</span>
+      <div class="hub-bot-sep"></div>
+      <button class="hub-bot-btn hub-bot-btn--start" id="hub-bot-start"
+              onclick="hubBotStart()" title="Lancer le bot" aria-label="Lancer le bot" disabled>
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5,3 19,12 5,21"/>
+        </svg>
+      </button>
+      <button class="hub-bot-btn hub-bot-btn--stop" id="hub-bot-stop"
+              onclick="hubBotStop()" title="Arrêter le bot" aria-label="Arrêter le bot" disabled>
+        <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="3" y="3" width="18" height="18" rx="2"/>
+        </svg>
+      </button>
+      <div class="hub-bot-sep"></div>
+      <button class="hub-bot-btn hub-bot-btn--restart" id="hub-bot-restart"
+              onclick="hubBotRestart()" title="Relancer le bot" aria-label="Relancer le bot">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="1 4 1 10 7 10"/>
+          <path d="M3.51 15a9 9 0 1 0 .49-3.84"/>
+        </svg>
+      </button>
+    </div>
+</nav>
+
+<main class="frames">
+  <iframe id="frame-trading" class="visible" src="apps/trading/trading_dashboard.html" title="Dashboard Trading"></iframe>
+  <iframe id="frame-budget"  src="apps/budget/budget.html" title="Dashboard Budget"></iframe>
+  <iframe id="frame-tdl"     src="apps/tdl/tdl.html" title="TDL — Tâches &amp; Planning"></iframe>
+  <iframe id="frame-polymarket" src="apps/polymarket/polymarket_capital.html" title="Suivi Capital Polymarket"></iframe>
+</main>
+
+<script>
+// ── Navigation ──────────────────────────────────────────
+var APP_LIST = ['trading', 'budget', 'tdl', 'polymarket'];
+var APP_META = {
+  trading:    { label: 'Trading', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>' },
+  budget:     { label: 'Budget',  icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 0 1 0 8h-1"/></svg>' },
+  tdl:        { label: 'TDL',     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>' },
+  polymarket: { label: 'Polymarket', icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>' }
+};
+
+function show(app) {
+  APP_LIST.forEach(function(id) {
+    document.getElementById('frame-' + id).classList.toggle('visible', id === app);
+  });
+  document.getElementById('nav-trading-tabs').style.display = (app === 'trading') ? 'flex' : 'none';
+  document.getElementById('nav-budget-tabs').style.display  = (app === 'budget')  ? 'flex' : 'none';
+  document.getElementById('nav-tdl-tabs').style.display     = (app === 'tdl')     ? 'flex' : 'none';
+  document.getElementById('nav-polymarket-tabs').style.display = (app === 'polymarket') ? 'flex' : 'none';
+  document.getElementById('hub-stats').style.visibility     = (app === 'trading') ? 'visible' : 'hidden';
+  document.getElementById('tdl-settings-btn').style.display = (app === 'tdl')     ? 'flex' : 'none';
+  document.getElementById('polymarket-settings-btn').style.display = (app === 'polymarket') ? 'flex' : 'none';
+  localStorage.setItem('hub_active_tab', app);
+  _broadcastVisibility(app);
+  // Sans ça, les raccourcis clavier de l'app active (ex. R en mode Review
+  // du trading) ne se déclenchent pas tant que l'utilisateur n'a pas cliqué
+  // dans l'iframe : basculer l'affichage CSS ne déplace pas le focus clavier.
+  var fr = document.getElementById('frame-' + app);
+  if (fr && fr.contentWindow) fr.contentWindow.focus();
+}
+
+// Informe chaque iframe si elle est l'app affichée, pour que sa constellation
+// se mette en pause quand elle est cachée derrière une autre iframe.
+function _broadcastVisibility(activeApp) {
+  APP_LIST.forEach(function(id) {
+    var fr = document.getElementById('frame-' + id);
+    if (fr && fr.contentWindow) {
+      fr.contentWindow.postMessage({ type: 'app_visible', visible: id === activeApp }, '*');
+    }
+  });
+}
+
+// Informe toutes les iframes du focus de la FENÊTRE du navigateur (pas du
+// focus DOM d'une iframe précise, qui n'est pas fiable — changer d'onglet
+// via le hub ne donne le focus à aucune iframe en particulier). Seul le
+// document de plus haut niveau peut détecter fiablement "l'utilisateur a
+// cliqué sur une autre application/un autre écran" : c'est donc lui qui
+// diffuse l'info, séparément de app_visible (changement d'onglet du hub).
+function _broadcastWindowFocus(focused) {
+  APP_LIST.forEach(function(id) {
+    var fr = document.getElementById('frame-' + id);
+    if (fr && fr.contentWindow) {
+      fr.contentWindow.postMessage({ type: 'window_focus', focused: focused }, '*');
+    }
+  });
+}
+window.addEventListener('focus', function() { _broadcastWindowFocus(true); });
+window.addEventListener('blur', function() {
+  // window.blur se déclenche aussi quand le focus se déplace simplement vers
+  // une des iframes (clic dans Trading/Budget/TDL) — ce n'est PAS une perte
+  // de focus vers une autre application, juste un déplacement interne. On
+  // revérifie après coup avec document.hasFocus() : si la fenêtre a encore
+  // le focus (juste ailleurs qu'au niveau du hub), on ne coupe rien.
+  setTimeout(function() {
+    if (!document.hasFocus()) _broadcastWindowFocus(false);
+  }, 0);
+});
+
+// Une iframe qui vient de charger demande son état de visibilité — on lui
+// répond directement (couvre le cas de l'app par défaut, sans passage par show()).
+window.addEventListener('message', function(e) {
+  if (!e.data || e.data.type !== 'request_app_visible') return;
+  var active = localStorage.getItem('hub_active_tab') || 'trading';
+  APP_LIST.forEach(function(id) {
+    var fr = document.getElementById('frame-' + id);
+    if (fr && e.source === fr.contentWindow) {
+      fr.contentWindow.postMessage({ type: 'app_visible', visible: id === active }, '*');
+    }
+  });
+});
+function toggleApp() {
+  var current = localStorage.getItem('hub_active_tab') || 'trading';
+  var idx = APP_LIST.indexOf(current);
+  show(APP_LIST[(idx + 1) % APP_LIST.length]);
+}
+
+// ── Menu logo Orbit : bascule directe vers l'un des 2 onglets non actifs ──
+function renderAppMenu() {
+  var current = localStorage.getItem('hub_active_tab') || 'trading';
+  var menu = document.getElementById('orbit-menu');
+  menu.innerHTML = APP_LIST.filter(function(a) { return a !== current; }).map(function(a) {
+    var m = APP_META[a];
+    return '<button type="button" class="orbit-menu-item" onclick="show(\'' + a + '\');closeAppMenu();">' + m.icon + '<span>' + m.label + '</span></button>';
+  }).join('');
+}
+function toggleAppMenu() {
+  var menu = document.getElementById('orbit-menu');
+  if (menu.classList.contains('open')) { closeAppMenu(); return; }
+  renderAppMenu();
+  menu.classList.add('open');
+  document.getElementById('orbit-menu-btn').setAttribute('aria-expanded', 'true');
+}
+function closeAppMenu() {
+  document.getElementById('orbit-menu').classList.remove('open');
+  document.getElementById('orbit-menu-btn').setAttribute('aria-expanded', 'false');
+}
+document.addEventListener('click', function(e) {
+  var wrap = document.querySelector('.orbit-menu-wrap');
+  if (wrap && !wrap.contains(e.target)) closeAppMenu();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeAppMenu();
+});
+// Le contenu des apps est dans des iframes : un clic dedans ne déclenche pas le
+// listener de clic du document parent. On ferme donc aussi le menu dès que la
+// fenêtre parent perd le focus (clic dans une iframe, changement d'app, alt-tab).
+window.addEventListener('blur', closeAppMenu);
+(function() {
+  var saved = localStorage.getItem('hub_active_tab') || 'trading';
+  show(saved);
+})();
+
+// ── Onglets trading depuis le hub ────────────────────────
+function hubSwitchTab(tab) {
+  document.querySelectorAll('#nav-trading-tabs .nav-tab').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  var frame = document.getElementById('frame-trading');
+  if (frame && frame.contentWindow) {
+    frame.contentWindow.postMessage({ type: 'switch_tab', tab: tab }, '*');
+  }
+  localStorage.setItem('hub_trading_tab', tab);
+}
+
+// Raccourcis clavier hub
+document.addEventListener('keydown', function(e) {
+  var tag = (e.target.tagName || '').toLowerCase();
+  if (['input','textarea','select'].includes(tag)) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'r' || e.key === 'R') toggleApp();
+});
+
+function switchBudgetTab(tab) {
+  document.querySelectorAll('#nav-budget-tabs .nav-tab').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  var frame = document.getElementById('frame-budget');
+  if (frame && frame.contentWindow) {
+    frame.contentWindow.postMessage({type: 'switch_tab', tab: tab}, '*');
+  }
+}
+
+function switchTdlTab(tab) {
+  document.querySelectorAll('#nav-tdl-tabs .nav-tab').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  var frame = document.getElementById('frame-tdl');
+  if (frame && frame.contentWindow) {
+    frame.contentWindow.postMessage({type: 'switch_tab', tab: tab}, '*');
+  }
+}
+
+function openTdlSettings() {
+  var frame = document.getElementById('frame-tdl');
+  if (frame && frame.contentWindow) {
+    frame.contentWindow.postMessage({ type: 'open_settings' }, '*');
+  }
+}
+
+function openPolymarketSettings() {
+  var frame = document.getElementById('frame-polymarket');
+  if (frame && frame.contentWindow) {
+    frame.contentWindow.postMessage({ type: 'open_settings' }, '*');
+  }
+}
+
+// ─── Hub P&L pixel masker ───────────────────────────────────────────────────
+var _hubPnlHidden = false, _hubPnlVal = '–', _hubPnlPos = false, _hubWrVal = '–', _hubRrVal = '–';
+var _hubPnlSeed = 0, _hubPnlInterval = null;
+var _hubPnlBmp = {
+  '0':[[0,0],[0,1],[0,2],[1,0],[1,2],[2,0],[2,1],[2,2]],
+  '1':[[0,1],[1,1],[2,1]],
+  '2':[[0,0],[0,1],[0,2],[1,1],[1,2],[2,0],[2,1]],
+  '3':[[0,0],[0,1],[0,2],[1,1],[1,2],[2,0],[2,1],[2,2]],
+  '4':[[0,0],[0,2],[1,0],[1,1],[1,2],[2,2]],
+  '5':[[0,0],[0,1],[0,2],[1,0],[1,1],[2,1],[2,2]],
+  '6':[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,2]],
+  '7':[[0,0],[0,1],[0,2],[1,2],[2,2]],
+  '8':[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]],
+  '9':[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,2]],
+};
+function _hubPpH(n){ var x=Math.sin(n*12.9898)*43758.5453; return x-Math.floor(x); }
+function _hubPpShuf(s){
+  var a=[]; for(var r=0;r<3;r++) for(var c=0;c<3;c++) a.push([r,c]);
+  return a.map(function(cell,i){return{cell:cell,k:_hubPpH(s*31.7+i*17.13)};}).sort(function(a,b){return a.k-b.k;}).map(function(o){return o.cell;});
+}
+function _hubPpHtml(text, isPos){
+  var p=5, gs=15, col='#94a3b8';
+  var h='<span style="display:inline-flex;align-items:center;gap:1px;vertical-align:middle;line-height:1">';
+  for(var i=0;i<text.length;i++){
+    var ch=text[i];
+    if(/[0-9]/.test(ch)){
+      var cells=_hubPpShuf(_hubPnlSeed*13+i*41).slice(0,(_hubPnlBmp[ch]||[]).length);
+      h+='<span style="position:relative;display:inline-block;width:'+gs+'px;height:'+gs+'px">';
+      cells.forEach(function(rc){
+        var op=(0.55+_hubPpH(rc[0]*3.7+rc[1]*11.3+i*5.1)*0.45).toFixed(2);
+        h+='<span style="position:absolute;width:'+p+'px;height:'+p+'px;background:'+col+';opacity:'+op+';left:'+(rc[1]*p)+'px;top:'+(rc[0]*p)+'px"></span>';
+      });
+      h+='</span>';
+    } else {
+      // non-digit characters not rendered in hidden mode
+    }
+  }
+  return h+'</span>';
+}
+function _hubPpApply(){
+  var pnlEl=document.getElementById('hs-pnl');
+  if(pnlEl && _hubPnlVal!=='–') pnlEl.innerHTML=_hubPpHtml(_hubPnlVal, _hubPnlPos);
+  var wrEl=document.getElementById('hs-wr');
+  if(wrEl && _hubWrVal!=='–') wrEl.innerHTML=_hubPpHtml(_hubWrVal, false);
+  var rrEl=document.getElementById('hs-rr');
+  if(rrEl && _hubRrVal!=='–') rrEl.innerHTML=_hubPpHtml(_hubRrVal, false);
+}
+function _hubPpRestore(){
+  var pnlEl=document.getElementById('hs-pnl');
+  if(pnlEl) pnlEl.textContent=_hubPnlVal;
+  var wrEl=document.getElementById('hs-wr');
+  if(wrEl && _hubWrVal!=='–') wrEl.textContent=_hubWrVal;
+  var rrEl=document.getElementById('hs-rr');
+  if(rrEl && _hubRrVal!=='–') rrEl.textContent=_hubRrVal;
+}
+
+// Sync tab actif + stats depuis les iframes
+window.addEventListener('message', function(e) {
+  if (!e.data) return;
+  if (e.data.type === 'theme_change') {
+    var t = e.data.theme;
+    if (t === 'light') document.documentElement.setAttribute('data-theme','light');
+    else document.documentElement.removeAttribute('data-theme');
+    return;
+  }
+  if (e.data.type === 'toggle_app') { toggleApp(); return; }
+  if (e.data.type === 'switch_app' && APP_LIST.indexOf(e.data.app) !== -1) { show(e.data.app); return; }
+  if (e.data.type === 'tab_changed') {
+    var tradingFrame = document.getElementById('frame-trading');
+    var budgetFrame  = document.getElementById('frame-budget');
+    var tdlFrame     = document.getElementById('frame-tdl');
+    if (e.source === (tradingFrame && tradingFrame.contentWindow)) {
+      document.querySelectorAll('#nav-trading-tabs .nav-tab').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.tab === e.data.tab);
+      });
+      localStorage.setItem('hub_trading_tab', e.data.tab);
+    } else if (e.source === (budgetFrame && budgetFrame.contentWindow)) {
+      document.querySelectorAll('#nav-budget-tabs .nav-tab').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.tab === e.data.tab);
+      });
+    } else if (e.source === (tdlFrame && tdlFrame.contentWindow)) {
+      document.querySelectorAll('#nav-tdl-tabs .nav-tab').forEach(function(b) {
+        b.classList.toggle('active', b.dataset.tab === e.data.tab);
+      });
+    }
+  }
+  if (e.data.type === 'pnl_visibility') {
+    _hubPnlHidden = !!e.data.hidden;
+    if (_hubPnlHidden) {
+      _hubPpApply();
+      if (!_hubPnlInterval) _hubPnlInterval = setInterval(function(){ _hubPnlSeed++; _hubPpApply(); }, 700);
+    } else {
+      clearInterval(_hubPnlInterval); _hubPnlInterval = null;
+      _hubPpRestore();
+    }
+  }
+  if (e.data.type === 'stats_update') {
+    var s = e.data;
+    var set = function(id, val, cls) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = val || '–';
+      if (cls) el.className = 'val ' + cls;
+    };
+    set('hs-total',     s.total);
+    set('hs-wr',        s.wr,  s.wrClass);
+    _hubWrVal = s.wr || '–';
+    set('hs-rr',        s.rr);
+    _hubRrVal = s.rr || '–';
+    set('hs-portfolio', s.portfolio);
+    // P&L via pixel masker
+    _hubPnlVal = s.pnl || '–';
+    _hubPnlPos = s.pnlClass === 'pos';
+    var pnlEl = document.getElementById('hs-pnl');
+    if (pnlEl) { pnlEl.textContent = _hubPnlVal; if (s.pnlClass) pnlEl.className = 'val ' + s.pnlClass; }
+    if (_hubPnlHidden) _hubPpApply();
+  }
+});
+
+
+// Restaurer le thème au démarrage
+(function() {
+  var t = localStorage.getItem('tjournal_theme') || localStorage.getItem('nx_theme');
+  if (t === 'light') document.documentElement.setAttribute('data-theme','light');
+})();
+
+// Restaurer l'onglet trading actif au démarrage
+(function() {
+  var savedTab = localStorage.getItem('hub_trading_tab');
+  if (savedTab) {
+    document.querySelectorAll('#nav-trading-tabs .nav-tab').forEach(function(b) {
+      b.classList.toggle('active', b.dataset.tab === savedTab);
+    });
+  }
+})();
+
+// ── Bot control ─────────────────────────────────────────
+const LAUNCHER_URL   = 'http://127.0.0.1:8001';
+let _botRunning      = null;
+let _botTransition   = false;
+
+function _setBotUI(running, loading) {
+  if (loading === undefined) loading = false;
+  if (!loading) _botRunning = running;
+
+  var dot    = document.getElementById('hub-bot-dot');
+  var status = document.getElementById('hub-bot-status');
+  var start  = document.getElementById('hub-bot-start');
+  var stop   = document.getElementById('hub-bot-stop');
+  var card   = document.getElementById('hub-bot-card');
+
+  // dot
+  dot.className = 'hub-bot-dot' + (loading ? ' loading' : running ? ' online' : ' offline');
+
+  // label + color
+  if (loading) {
+    status.textContent  = 'Connexion…';
+    status.className    = 'hub-bot-status loading';
+  } else if (running) {
+    status.textContent  = 'En ligne';
+    status.className    = 'hub-bot-status online';
+  } else {
+    status.textContent  = 'Hors ligne';
+    status.className    = 'hub-bot-status offline';
+  }
+
+  // buttons
+  start.disabled = loading || running === true;
+  stop.disabled  = loading || running === false;
+
+  // card state
+  card.classList.toggle('is-online',  !loading && running === true);
+  card.classList.toggle('is-offline', !loading && running === false);
+}
+
+async function _checkBotStatus() {
+  if (_botTransition) return;
+  try {
+    var r = await fetch(LAUNCHER_URL + '/status', { signal: AbortSignal.timeout(1200) });
+    var d = await r.json();
+    _setBotUI(d.running);
+  } catch(e) { _setBotUI(false); }
+}
+
+function _pollUntil(condition, maxTries, intervalMs) {
+  return new Promise(function(resolve) {
+    var tries = 0;
+    var timer = setInterval(async function() {
+      tries++;
+      try {
+        var r = await fetch(LAUNCHER_URL + '/status', { signal: AbortSignal.timeout(1200) });
+        var d = await r.json();
+        if (condition(d.running) || tries >= maxTries) { clearInterval(timer); resolve(d.running); }
+      } catch(e) { if (tries >= maxTries) { clearInterval(timer); resolve(false); } }
+    }, intervalMs);
+  });
+}
+
+async function hubBotStart() {
+  _botTransition = true;
+  _setBotUI(null, true);
+  try { await fetch(LAUNCHER_URL + '/start', { method:'POST', signal: AbortSignal.timeout(4000) }); } catch(e) {}
+  var running = await _pollUntil(function(s){ return s === true; }, 60, 500);
+  _botTransition = false;
+  _setBotUI(running);
+}
+
+async function hubBotStop() {
+  _botTransition = true;
+  _setBotUI(null, true);
+  try { await fetch(LAUNCHER_URL + '/stop', { method:'POST', signal: AbortSignal.timeout(4000) }); } catch(e) {}
+  var running = await _pollUntil(function(s){ return s === false; }, 8, 1000);
+  _botTransition = false;
+  _setBotUI(running);
+}
+
+async function hubBotRestart() {
+  _botTransition = true;
+  _setBotUI(null, true);
+  try { await fetch(LAUNCHER_URL + '/restart', { method:'POST', signal: AbortSignal.timeout(6000) }); } catch(e) {}
+  var running = await _pollUntil(function(s){ return s === true; }, 60, 500);
+  _botTransition = false;
+  _setBotUI(running);
+}
+
+_checkBotStatus();
+setInterval(_checkBotStatus, 8000);
+
+// ── Constellation background ────────────────────────────
+(function(){
+  const canvas = document.getElementById('constellation-canvas');
+  const ctx    = canvas.getContext('2d');
+  let W = canvas.width  = window.innerWidth;
+  let H = canvas.height = window.innerHeight;
+
+  const mouse = { x: -9999, y: -9999, active: false };
+
+  const COLORS = [
+    { r: 124, g: 58,  b: 237 },
+    { r: 139, g: 71,  b: 240 },
+    { r: 167, g: 139, b: 250 },
+    { r: 196, g: 181, b: 253 },
+    { r: 101, g: 39,  b: 208 },
+    { r: 226, g: 232, b: 240 },
+  ];
+
+  class Dust {
+    constructor(spreadY) { this.reset(spreadY); }
+    reset(spreadY) {
+      this.x = Math.random() * W;
+      this.y = spreadY ? Math.random() * H : H + 6;
+      this.r = 0.4 + Math.random() * 1.0;
+      this.speed = 0.18 + Math.random() * 0.52;
+      this.drift = (Math.random() - 0.5) * 0.12;
+      this.phase = Math.random() * Math.PI * 2;
+      this.phaseSpd = 0.005 + Math.random() * 0.007;
+      this.alpha = 0.12 + Math.random() * 0.38;
+    }
+    update() {
+      this.phase += this.phaseSpd;
+      this.x += this.drift + Math.sin(this.phase) * 0.18;
+      this.y -= this.speed;
+      if (this.x < -4) this.x = W + 4;
+      if (this.x > W + 4) this.x = -4;
+      if (this.y < -8) this.reset(false);
+    }
+    draw() {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(200,215,255,${this.alpha})`;
+      ctx.fill();
+    }
+  }
+
+  class Node {
+    constructor() {
+      this.homeX = Math.random() * W;
+      this.homeY = Math.random() * H;
+      this.x = this.homeX; this.y = this.homeY;
+      this.vx = 0; this.vy = 0;
+      const c = COLORS[Math.floor(Math.random() * COLORS.length)];
+      this.cr = c.r; this.cg = c.g; this.cb = c.b;
+      const roll = Math.random();
+      if      (roll < 0.12) { this.size = 3.8 + Math.random() * 2.2; this.glow = true; }
+      else if (roll < 0.35) { this.size = 1.8 + Math.random() * 1.4; this.glow = false; }
+      else                  { this.size = 0.7 + Math.random() * 0.8; this.glow = false; }
+    }
+    update() {
+      if (mouse.active) {
+        const dx = this.x - mouse.x, dy = this.y - mouse.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < 120 && d > 0) {
+          const f = (120 - d) / 120;
+          this.vx += Math.cos(Math.atan2(dy,dx)) * f * 3.5;
+          this.vy += Math.sin(Math.atan2(dy,dx)) * f * 3.5;
+        }
+      }
+      this.vx += (this.homeX - this.x) * 0.08;
+      this.vy += (this.homeY - this.y) * 0.08;
+      this.vx *= 0.78; this.vy *= 0.78;
+      this.x += this.vx; this.y += this.vy;
+    }
+    draw() {
+      const {x,y,cr,cg,cb,size,glow} = this;
+      if (glow) {
+        const g = ctx.createRadialGradient(x,y,0,x,y,size*5);
+        g.addColorStop(0,   `rgba(${cr},${cg},${cb},0.55)`);
+        g.addColorStop(0.4, `rgba(${cr},${cg},${cb},0.18)`);
+        g.addColorStop(1,   `rgba(${cr},${cg},${cb},0)`);
+        ctx.beginPath(); ctx.arc(x,y,size*5,0,Math.PI*2);
+        ctx.fillStyle = g; ctx.fill();
+      }
+      ctx.beginPath(); ctx.arc(x,y,size,0,Math.PI*2);
+      ctx.fillStyle = `rgb(${cr},${cg},${cb})`; ctx.fill();
+    }
+  }
+
+  function drawConnections() {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i+1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        const dx = a.x-b.x, dy = a.y-b.y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if (dist > 145) continue;
+        let alpha = (1 - dist/145) * 0.55;
+        if (mouse.active) {
+          const mx=(a.x+b.x)*0.5-mouse.x, my=(a.y+b.y)*0.5-mouse.y;
+          const md=Math.sqrt(mx*mx+my*my);
+          if (md < 100) alpha *= md/100;
+        }
+        if (alpha < 0.01) continue;
+        const n = a.size >= b.size ? a : b;
+        ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y);
+        ctx.strokeStyle = `rgba(${n.cr},${n.cg},${n.cb},${alpha*0.7})`;
+        ctx.lineWidth = 0.55; ctx.stroke();
+      }
+    }
+  }
+
+  const dust  = Array.from({length:55},  () => new Dust(true));
+  const nodes = Array.from({length:180}, () => new Node());
+
+  // La constellation du hub est masquée en permanence par les iframes des
+  // dashboards (seul un voile flouté transparaît sous la barre de nav) :
+  // inutile d'animer 180 nœuds en O(n²) à 60 fps. On rend une seule image
+  // fixe, re-générée uniquement au redimensionnement. Gère aussi le
+  // devicePixelRatio pour un rendu net sur écran HiDPI.
+  function fit() {
+    // On ne dimensionne QUE le backing store (résolution interne) ×dpr ;
+    // la taille d'affichage reste gérée par le CSS (width/height:100%).
+    // Fixer une taille inline en px écrasait le CSS et décalait le canvas
+    // sur certains écrans (ex. ultrawide), révélant les orbes violets.
+    const dpr = window.devicePixelRatio || 1;
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  function renderStatic() {
+    fit();
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#07071a'; ctx.fillRect(0,0,W,H);
+    for (const d of dust) d.draw();
+    drawConnections();
+    for (const n of nodes) n.draw();
+  }
+  let _resizeT;
+  window.addEventListener('resize', () => {
+    clearTimeout(_resizeT);
+    _resizeT = setTimeout(() => {
+      for (const n of nodes) { n.homeX = Math.random()*W; n.homeY = Math.random()*H; n.x = n.homeX; n.y = n.homeY; }
+      renderStatic();
+    }, 150);
+  });
+  renderStatic();
+})();
+
+// ── Budget data bridge : trading iframe → budget iframe → retour
+window.addEventListener('message', function(e) {
+  if (!e.data || e.data.type !== 'budget_data_request') return;
+  var tradingFrame = document.getElementById('frame-trading');
+  var budgetFrame  = document.getElementById('frame-budget');
+  if (!tradingFrame || !budgetFrame || e.source !== tradingFrame.contentWindow) return;
+  budgetFrame.contentWindow.postMessage({ type: 'budget_data_request' }, '*');
+  function handler(evt) {
+    if (evt.source !== budgetFrame.contentWindow) return;
+    if (!evt.data || evt.data.type !== 'budget_data_for_hub') return;
+    window.removeEventListener('message', handler);
+    tradingFrame.contentWindow.postMessage({ type: 'budget_data_response', budget: evt.data.budget }, '*');
+  }
+  window.addEventListener('message', handler);
+  setTimeout(function() { window.removeEventListener('message', handler); }, 1000);
+});
+</script>
+<div class="demo-badge">✦ DÉMO — données fictives · <b>Orbit</b> par Rémy Grabet</div>
+</body>
+</html>

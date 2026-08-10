@@ -1,0 +1,17 @@
+{
+  "name": "TDL — Tâches & Temps",
+  "short_name": "TDL",
+  "description": "Tâches, planning et temps libre — 100% local, sur ton appareil.",
+  "lang": "fr",
+  "start_url": "tdl.html?app=1",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#07071a",
+  "theme_color": "#7c3aed",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

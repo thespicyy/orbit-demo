@@ -1,0 +1,673 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+<script src="../../demo/guard.js"></script>
+<script src="../../demo/seed-budget.js"></script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Orbit — Budget</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'><circle cx='50' cy='50' r='38' stroke='%23a78bfa' stroke-width='4'/><circle cx='50' cy='50' r='13' fill='%238b5cf6'/><circle cx='69' cy='17.09' r='9' fill='%23f3f1fa'/></svg>"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<script>(function(){try{var t=localStorage.getItem('nx_theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}try{if(window!==window.top){document.documentElement.classList.add('in-hub');var s=document.createElement('style');s.textContent='body{background:#07071a!important;background-image:none!important}header{display:none!important}';document.head.appendChild(s);}}catch(e){document.documentElement.classList.add('in-hub');}}());</script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="budget.css"/>
+</head>
+<body>
+
+<canvas id="hub-constellation-canvas"></canvas>
+
+<!-- HEADER -->
+<header>
+  <nav class="tabs">
+    <button class="tab active" data-tab="dashboard" onclick="switchTab('dashboard')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="tab" data-tab="budget" onclick="switchTab('budget')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 0 1 0 8h-1"/></svg>
+      <span>Budget</span>
+    </button>
+    <button class="tab" data-tab="comptes" onclick="switchTab('comptes')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+      <span>Comptes</span>
+    </button>
+    <div class="tab-sep" style="width:1px;background:rgba(255,255,255,0.1);margin:4px 2px;border-radius:1px;"></div>
+    <button class="tab" data-tab="actifs" onclick="switchTab('actifs')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      <span>Actifs</span>
+    </button>
+    <button class="tab" data-tab="ops" onclick="switchTab('ops')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span>Opérations</span>
+    </button>
+    <div class="tab-sep" style="width:1px;background:rgba(255,255,255,0.1);margin:4px 2px;border-radius:1px;"></div>
+    <button class="tab" data-tab="projection" onclick="switchTab('projection')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      <span>Projection</span>
+    </button>
+  </nav>
+
+  <div class="header-right">
+    <div class="stat-pill">
+      <span class="lbl">Épargne / mois</span>
+      <span class="val pos" id="hdrEpargne">—</span>
+    </div>
+    <div class="stat-pill">
+      <span class="lbl">Liquidités</span>
+      <span class="val" id="hdrLiquidites">—</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══ DASHBOARD ═══ -->
+<div id="tab-dashboard" class="content active">
+  <div class="grid-4" style="margin-bottom:16px;" id="kpiGrid"></div>
+  <div class="grid-60-40" style="margin-bottom:16px;">
+    <!-- Budget rapide -->
+    <div class="card">
+      <div class="card-title"><div class="dot dot-purple"></div>Répartition des dépenses du mois</div>
+      <div class="chart-wrap"><canvas id="chartDeps"></canvas></div>
+    </div>
+    <!-- Score santé -->
+    <div class="card">
+      <div class="card-title"><div class="dot dot-green"></div>Score santé financière</div>
+      <div class="score-ring-wrap">
+        <div class="score-ring">
+          <canvas id="chartScore" width="140" height="140"></canvas>
+          <div class="score-center">
+            <div class="score-num" id="scoreNum">—</div>
+            <div class="score-label" id="scoreLabel">—</div>
+          </div>
+        </div>
+      </div>
+      <div class="score-details" id="scoreDetails"></div>
+    </div>
+  </div>
+  <!-- Évolution épargne mensuelle -->
+  <div class="card">
+    <div class="card-title"><div class="dot dot-teal"></div>Évolution mensuelle — Revenus · Dépenses · Épargne</div>
+    <div class="chart-wrap" style="height:200px;"><canvas id="chartEvol"></canvas></div>
+  </div>
+</div>
+
+<!-- ═══ BUDGET ═══ -->
+<div id="tab-budget" class="content">
+  <!-- Top bar: navigation + salaire -->
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
+    <div class="month-nav">
+      <button onclick="prevMonth()">‹</button>
+      <div class="month-label" id="monthLabel">—</div>
+      <button onclick="nextMonth()">›</button>
+    </div>
+    <div class="salary-banner" style="flex:1;min-width:280px;">
+      <span class="lbl">Salaire net</span>
+      <input type="number" id="salaireInput" placeholder="0" min="0" step="50" oninput="onSalaireChange()" style="max-width:180px;"/>
+      <span class="euro">€</span>
+    </div>
+  </div>
+
+  <div class="grid-60-40">
+    <!-- Catégories -->
+    <div>
+      <div class="section-header">
+        <h2><div class="section-dot"></div>Postes de dépenses</h2>
+        <button class="btn btn-ghost btn-sm" onclick="openCatModal()">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Ajouter
+        </button>
+      </div>
+      <div class="cat-grid" id="catGrid"></div>
+    </div>
+
+    <!-- Résumé -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <!-- Épargne possible -->
+      <div class="savings-card">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:rgba(16,185,129,0.7);margin-bottom:4px;">Épargne potentielle</div>
+        <div class="savings-big" id="savingsAmt">—</div>
+        <div style="font-size:12px;color:var(--text2);margin-top:6px;" id="savingsRate">Taux d'épargne : —</div>
+      </div>
+      <!-- Totaux -->
+      <div class="card" style="padding:18px;">
+        <div class="card-title" style="margin-bottom:12px;"><div class="dot dot-teal"></div>Résumé du mois</div>
+        <div id="budgetSummary" style="display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+      <!-- Budget annuel projeté -->
+      <div class="card" style="padding:18px;">
+        <div class="card-title" style="margin-bottom:12px;"><div class="dot dot-yellow"></div>Projections</div>
+        <div id="projections" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Historique mensuel -->
+  <div style="margin-top:16px;">
+    <div class="section-header"><h2><div class="section-dot" style="background:var(--accent2);box-shadow:0 0 6px var(--accent2);"></div>Historique</h2></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Mois</th><th class="right">Salaire</th><th class="right">Charges fixes</th><th class="right">Dépenses</th>
+          <th class="right">Épargne</th><th class="right">Taux</th>
+        </tr></thead>
+        <tbody id="historyTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ COMPTES ═══ -->
+<div id="tab-comptes" class="content">
+  <div class="grid-2">
+    <!-- Liste comptes -->
+    <div>
+      <div class="section-header">
+        <h2><div class="section-dot"></div>Mes comptes</h2>
+        <button class="btn btn-ghost btn-sm" onclick="openCompteModal()">
+          <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Ajouter
+        </button>
+      </div>
+      <div class="compte-list" id="compteList"></div>
+      <div id="investSection"></div>
+    </div>
+    <!-- Répartition + total -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="card">
+        <div class="card-title"><div class="dot dot-teal"></div>Répartition</div>
+        <div class="chart-wrap" style="height:200px;"><canvas id="chartComptes"></canvas></div>
+      </div>
+      <div class="grid-2" id="compteKpis"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB: ACTIFS ═══ -->
+<div id="tab-actifs" class="content">
+  <div class="section-header">
+    <div>
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="tous" onclick="filterActifs('tous',this)">Tous</button>
+        <button class="filter-tab crypto" data-filter="crypto" onclick="filterActifs('crypto',this)">Crypto</button>
+        <button class="filter-tab pea" data-filter="pea" onclick="filterActifs('pea',this)">PEA</button>
+        <button class="filter-tab cto" data-filter="cto" onclick="filterActifs('cto',this)">CTO</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="openPriceModal()">
+        <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Mettre à jour les prix
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="takeSnapshot()">
+        <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Snapshot
+      </button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <div style="padding:12px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border2);">
+      <span style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text2);">Mes positions</span>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button id="btn-crypto-devise" onclick="toggleCryptoDevise()" style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;border:1px solid rgba(245,158,11,0.3);background:rgba(245,158,11,0.08);color:#f59e0b;cursor:pointer;letter-spacing:0.3px;transition:all .2s">Crypto : $ USD</button>
+        <span id="actifCount" style="font-size:12px;color:var(--text2);">0 position(s)</span>
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Actif</th><th>Compte</th>
+        <th class="right">Investi (€)</th><th class="right">Valeur (€)</th>
+        <th class="right">+/- Value</th><th class="right">Perf.</th>
+        <th class="right">CAGR</th><th class="right">Allocation</th><th></th>
+      </tr></thead>
+      <tbody id="actifTbody">
+        <tr><td colspan="9"><div class="empty-state">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <p>Aucune position</p><span style="font-size:12px;color:var(--text3);">Ajoutez des opérations dans l'onglet Opérations</span>
+        </div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ TAB: OPÉRATIONS ═══ -->
+<div id="tab-ops" class="content">
+  <div class="grid-2" style="align-items:start;">
+    <div class="card">
+      <div class="card-title"><div class="dot dot-purple"></div><span id="formTitle">Nouvelle opération</span></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Date</label><input type="date" id="f_date"/></div>
+        <div class="form-group">
+          <label>Compte</label>
+          <select id="f_compte" onchange="onCompteChange()">
+            <option value="crypto">Crypto</option>
+            <option value="pea">PEA</option>
+            <option value="cto">CTO</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="f_type" onchange="onTypeChange()">
+            <option value="achat">Achat</option>
+            <option value="vente">Vente / Retrait</option>
+            <option value="conversion">Conversion</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Actif</label><input type="text" id="f_actif" placeholder="BTC, ETF SP500…" oninput="this.value=this.value.toUpperCase();if(document.getElementById('f_type').value==='conversion')updateConvAmounts()"/></div>
+        <div class="form-group" id="fg_actif_cible" style="display:none;"><label>Actif cible</label><input type="text" id="f_actif_cible" placeholder="USDC, ETH…" oninput="this.value=this.value.toUpperCase()"/></div>
+        <div class="form-group wide" id="fg_conv_amount" style="display:none;">
+          <label>Montant converti</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="position:relative;flex:0 0 90px;">
+              <input type="number" id="f_conv_pct" min="0" max="100" step="0.1" placeholder="100" oninput="onConvPctChange()" style="padding-right:22px;width:100%;"/>
+              <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text2);pointer-events:none;">%</span>
+            </div>
+            <span style="color:var(--text2);font-size:14px;flex-shrink:0;font-weight:600;">↔</span>
+            <div style="position:relative;flex:1;">
+              <input type="number" id="f_conv_eur" min="0" step="any" placeholder="1 000" oninput="onConvEurChange()" style="padding-right:22px;width:100%;"/>
+              <span style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text2);pointer-events:none;">€</span>
+            </div>
+          </div>
+          <div id="conv_base_hint" style="font-size:10px;color:var(--text2);margin-top:5px;display:none;"></div>
+        </div>
+        <div class="form-group" id="fg_montant_simple"><label>Montant investi (€)</label><input type="number" id="f_montant" placeholder="1 000" step="any" min="0"/></div>
+        <div class="form-group" id="fg_quantite" style="display:none;"><label>Quantité totale détenue</label><input type="number" id="f_quantite" placeholder="10" step="any" min="0" oninput="calcMontantQtyPrix()"/></div>
+        <div class="form-group" id="fg_prix_unit" style="display:none;"><label>Prix de revient moyen (€)</label><input type="number" id="f_prix_unit" placeholder="150.00" step="any" min="0" oninput="calcMontantQtyPrix()"/></div>
+        <div class="form-group" id="fg_montant_calc" style="display:none;"><label style="color:var(--text2)">Montant calculé</label><div id="montant_calc_preview" class="preview-box">—</div></div>
+        <div class="form-group wide" id="fg_valeur_capital">
+          <label>Valeur du capital <span style="font-size:9px;color:var(--text3)">(valeur totale actuelle)</span></label>
+          <div class="devise-wrap">
+            <input type="number" id="f_valeur" placeholder="Ex : 1 250…" step="any" min="0"/>
+            <select id="f_devise" class="devise-sel" onchange="onDeviseChange()">
+              <option value="EUR">€ EUR</option>
+              <option value="USD">$ USD</option>
+            </select>
+          </div>
+          <div class="rate-hint" id="rateHintForm" style="display:none;">1 $ = <span id="rateValForm">…</span> € &nbsp;·&nbsp;<button onclick="fetchEurRate(true).then(updateRateHints)">↻ Actualiser</button></div>
+        </div>
+        <div class="form-group full"><label>Note</label><input type="text" id="f_note" placeholder="Optionnel…"/></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:18px;align-items:center;">
+        <button class="btn btn-primary" onclick="saveOp()"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span id="btnSaveLabel">Enregistrer</span></button>
+        <button class="btn btn-ghost" onclick="resetForm()">Annuler</button>
+        <span id="editingBadge" style="display:none;font-size:11px;color:var(--yellow);font-weight:600">✏ Modification en cours</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="card" style="padding:28px 24px;">
+        <div class="card-title" style="margin-bottom:22px;"><div class="dot dot-teal"></div>Résumé rapide</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+          <div><div style="font-size:10px;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Opérations</div><div style="font-size:20px;font-weight:800;" id="statOpsCount">0</div></div>
+          <div><div style="font-size:10px;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Actifs</div><div style="font-size:20px;font-weight:800;" id="statActifsCount">0</div></div>
+          <div><div style="font-size:10px;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Investi total</div><div style="font-size:16px;font-weight:700;" id="statInvesti">—</div></div>
+          <div><div style="font-size:10px;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Snapshots</div><div style="font-size:20px;font-weight:800;" id="statSnaps">0</div></div>
+        </div>
+      </div>
+      <div class="card" style="padding:28px 24px;">
+        <div class="card-title" style="margin-bottom:22px;"><div class="dot dot-red"></div>Import / Export</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="exportData()"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exporter JSON</button>
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer;justify-content:center;"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importer JSON<input type="file" accept=".json" onchange="importData(event)" style="display:none"/></label>
+          <button class="btn btn-danger btn-sm" onclick="clearOps()">Tout effacer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- ─── CALCULATEUR RÉÉQUILIBRAGE ─────────────────────────────────────── -->
+  <div class="card" style="padding:22px;margin-top:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <div class="card-title" style="margin-bottom:0;">
+        <div class="dot" style="background:var(--yellow);box-shadow:0 0 6px var(--yellow);"></div>
+        Rééquilibrage ETF
+      </div>
+      <button id="rb_toggle" onclick="rbToggle()" style="background:none;border:1px solid rgba(255,255,255,0.08);border-radius:7px;color:var(--text2);cursor:pointer;font-size:11px;padding:3px 9px;transition:all .15s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.08)'">▲ Replier</button>
+    </div>
+    <div id="rb_body">
+
+      <!-- ─ Ligne principale : montant + cible ─ -->
+      <div style="display:flex;gap:12px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;">
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text2);">Montant à investir</label>
+          <div style="position:relative;display:flex;align-items:center;">
+            <input type="number" id="rb_invest" placeholder="2 000" min="0" step="any"
+              style="width:140px;padding-right:28px;" oninput="calcRebalance()"/>
+            <span style="position:absolute;right:10px;font-size:12px;color:var(--text2);pointer-events:none;">€</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <label style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text2);">Cible ETF 1 (%)</label>
+          <div style="position:relative;display:flex;align-items:center;gap:8px;">
+            <input type="number" id="rb_target1" value="80" min="1" max="99" step="1"
+              style="width:80px;" oninput="onRbTargetChange()"/>
+            <span style="font-size:12px;color:var(--text2);">/ ETF 2 : <span id="rb_target2_disp" style="color:var(--text3);font-weight:700;">20%</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─ ETFs ─ -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
+
+        <!-- ETF 1 -->
+        <div style="background:rgba(129,140,248,0.06);border:1px solid rgba(129,140,248,0.22);border-radius:13px;padding:14px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#818cf8;margin-bottom:10px;">ETF 1</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:10px;color:var(--text2);">Nom</label>
+              <input type="text" id="rb_etf1_name" value="SP500" style="font-weight:600;" oninput="calcRebalance()"/>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="font-size:10px;color:var(--text2);">Parts détenues</label>
+                <input type="number" id="rb_etf1_units" placeholder="0" min="0" step="any" oninput="calcRebalance()"/>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="font-size:10px;color:var(--text2);">Prix / part (€)</label>
+                <input type="number" id="rb_etf1_price" placeholder="500" min="0" step="any" oninput="calcRebalance()"/>
+              </div>
+            </div>
+            <div style="font-size:11px;color:rgba(129,140,248,0.8);text-align:right;" id="rb_etf1_val">—</div>
+          </div>
+        </div>
+
+        <!-- ETF 2 -->
+        <div style="background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.22);border-radius:13px;padding:14px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#06b6d4;margin-bottom:10px;">ETF 2</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;flex-direction:column;gap:4px;">
+              <label style="font-size:10px;color:var(--text2);">Nom</label>
+              <input type="text" id="rb_etf2_name" value="NS100" style="font-weight:600;" oninput="calcRebalance()"/>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="font-size:10px;color:var(--text2);">Parts détenues</label>
+                <input type="number" id="rb_etf2_units" placeholder="0" min="0" step="any" oninput="calcRebalance()"/>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:4px;">
+                <label style="font-size:10px;color:var(--text2);">Prix / part (€)</label>
+                <input type="number" id="rb_etf2_price" placeholder="285" min="0" step="any" oninput="calcRebalance()"/>
+              </div>
+            </div>
+            <div style="font-size:11px;color:rgba(6,182,212,0.8);text-align:right;" id="rb_etf2_val">—</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ─ Résultat ─ -->
+      <div id="rb_result" style="min-height:40px;"></div>
+
+    </div>
+  </div>
+
+  <div class="table-wrap" style="margin-top:16px;">
+    <div style="padding:12px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border2);">
+      <span style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text2);">Historique des opérations</span>
+      <span id="opsCount" style="font-size:12px;color:var(--text2);">0 opération(s)</span>
+    </div>
+    <table>
+      <thead><tr>
+        <th>Date</th><th>Compte</th><th>Type</th><th>Actif</th>
+        <th class="right">Investi (€)</th><th class="right">Valeur (€)</th>
+        <th>Note</th><th></th>
+      </tr></thead>
+      <tbody id="opsTbody">
+        <tr><td colspan="8"><div class="empty-state"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><p>Aucune opération</p></div></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL: Prix -->
+<div class="modal-overlay" id="modalPrix">
+  <div class="modal" style="max-width:520px;">
+    <button class="modal-close" onclick="closeModal('modalPrix')">✕</button>
+    <div class="modal-title">Mettre à jour les prix</div>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:14px;">Entrez la valeur actuelle de chaque position. Vous pouvez saisir en $ — la conversion est automatique.</p>
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:rgba(6,182,212,0.06);border:1px solid rgba(6,182,212,0.18);margin-bottom:16px;">
+      <span style="font-size:11px;color:var(--text2);font-weight:600;">Taux USD/EUR :</span>
+      <span id="modalRateVal" style="font-size:13px;font-weight:700;color:var(--accent2);">—</span>
+      <button class="btn btn-ghost btn-xs" onclick="fetchEurRate(true).then(updateRateHints).then(()=>renderPriceFields(getPositions()))" style="margin-left:auto;">↻ Actualiser</button>
+    </div>
+    <div id="priceFields" style="display:flex;flex-direction:column;gap:10px;"></div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button class="btn btn-primary" onclick="savePrices()"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Mettre à jour + Snapshot</button>
+      <button class="btn btn-ghost" onclick="closeModal('modalPrix')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ TAB: PROJECTION ═══ -->
+<div id="tab-projection" class="content">
+
+  <div class="summary">
+    <div class="sum-card big">
+      <div class="sc-head">
+        <div class="sc-icon w"><svg viewBox="0 0 24 24" stroke="#fff"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+        <span class="sc-name w">Total net</span>
+      </div>
+      <div class="sc-main">
+        <div class="sc-lbl">Capital net à 55 ans</div>
+        <div class="sc-val xl w" id="sTotN">—</div>
+      </div>
+      <div class="sc-grid-3">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Retrait/mois à 55 ans</div><div class="sc-kpi-val c" id="sTotR">—</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">dont PEA</div><div class="sc-kpi-val g" id="sPeaR">—</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">dont Crypto</div><div class="sc-kpi-val o" id="sCryR">—</div></div>
+      </div>
+    </div>
+    <div class="sum-card pea">
+      <div class="sc-head">
+        <div class="sc-icon g"><svg viewBox="0 0 24 24" stroke="#00e5a0"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+        <span class="sc-name g">PEA</span>
+      </div>
+      <div class="sc-main">
+        <div class="sc-lbl">Net à 55 ans</div>
+        <div class="sc-val lg g" id="sPeaN">—</div>
+      </div>
+      <div class="sc-grid">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Brut à 55 ans</div><div class="sc-kpi-val w" id="sPeaB">—</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Retrait/mois</div><div class="sc-kpi-val g" id="sPeaR2">—</div></div>
+      </div>
+    </div>
+    <div class="sum-card cry">
+      <div class="sc-head">
+        <div class="sc-icon o"><svg viewBox="0 0 24 24" stroke="#f7931a"><path d="M11.767 19.089c4.924.868 6.14-6.025 1.216-6.894m-1.216 6.894L5.86 18.047m5.908 1.042-.347 1.97m1.563-8.864c4.924.869 6.14-6.025 1.215-6.893m-1.215 6.893-3.94-.694m5.155-6.2L8.29 4.26m5.908 1.042.348-1.97M7.48 20.364l3.126-17.727"/></svg></div>
+        <span class="sc-name o">Crypto</span>
+      </div>
+      <div class="sc-main">
+        <div class="sc-lbl">Net à 55 ans</div>
+        <div class="sc-val lg o" id="sCryN">—</div>
+      </div>
+      <div class="sc-grid">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Brut à 55 ans</div><div class="sc-kpi-val w" id="sCryB">—</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Retrait/mois</div><div class="sc-kpi-val o" id="sCryR2">—</div></div>
+      </div>
+    </div>
+    <div class="sum-card vers">
+      <div class="sc-head">
+        <div class="sc-icon c"><svg viewBox="0 0 24 24" stroke="#06b6d4"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+        <span class="sc-name c">Versements</span>
+      </div>
+      <div class="sc-main">
+        <div class="sc-lbl">Total versé sur 30 ans</div>
+        <div class="sc-val lg c" id="sTotV">—</div>
+      </div>
+      <div class="sc-grid">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Plus-value nette</div><div class="sc-kpi-val w" id="sPV">—</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Multiplicateur</div><div class="sc-kpi-val c" id="sMult">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="proj-chart-card">
+    <div class="proj-dots-bg"></div>
+    <div class="chart-title" id="chartTitle">Calcul en cours…</div>
+    <div class="chart-wrap" style="position:relative;">
+      <canvas id="myChart"></canvas>
+      <div id="chartTooltip" class="hidden"></div>
+    </div>
+    <div class="leg">
+      <div class="leg-i"><div class="leg-line" style="background:rgba(100,149,237,0.5);height:9px;border-radius:2px;"></div>Total versé</div>
+      <div class="leg-i"><div class="leg-line" style="background:#00e5a0;"></div>PEA brut</div>
+      <div class="leg-i"><div class="leg-line" style="background:#f7931a;"></div>Crypto brut</div>
+      <div class="leg-i"><div class="leg-line" style="background:#fff;height:3px;"></div>Total brut</div>
+    </div>
+  </div>
+
+  <div class="proj-controls">
+    <div class="ctrl-cols">
+      <div class="ctrl-col">
+        <div class="sec-title pu">Revenus par phases</div>
+        <div class="sr"><span class="sr-lbl">Statut</span><div class="proj-statut"><button type="button" class="proj-statut-btn" data-statut="cadre" onclick="projSetStatut('cadre')">Cadre</button><button type="button" class="proj-statut-btn" data-statut="noncadre" onclick="projSetStatut('noncadre')">Non-cadre</button></div></div>
+        <div id="proj_phases"></div>
+        <button type="button" class="proj-add-phase" onclick="projAddPhase()">+ Ajouter une phase de salaire</button>
+        <div class="sr" style="margin-top:12px"><span class="sr-lbl">Part PEA (%)</span><div class="sr-mid"><button class="pm" onclick="step('pct',-1)">−</button><input type="range" id="sl_pct" min="0" max="100" step="5" value="70" oninput="onSl('pct',this.value)"/><button class="pm" onclick="step('pct',+1)">+</button></div><span class="sr-val" id="vl_pct">70 %</span></div>
+      </div>
+      <div class="ctrl-col">
+        <div class="sec-title gr">PEA — Versements</div>
+        <div class="sr"><span class="sr-lbl">Capital initial PEA (€)</span><div class="sr-mid"><button class="pm" onclick="step('pea_k',-1)">−</button><input type="range" id="sl_pea_k" min="0" max="10000" step="100" value="1700" oninput="onSl('pea_k',this.value)"/><button class="pm" onclick="step('pea_k',+1)">+</button></div><span class="sr-val" id="vl_pea_k">1700 €</span></div>
+        <div class="sr"><span class="sr-lbl">Rendement PEA (%/an)</span><div class="sr-mid"><button class="pm" onclick="step('pea_r',-1)">−</button><input type="range" id="sl_pea_r" min="1" max="20" step="0.5" value="10" oninput="onSl('pea_r',this.value)"/><button class="pm" onclick="step('pea_r',+1)">+</button></div><span class="sr-val" id="vl_pea_r">10.0 %</span></div>
+        <div class="sec-title gr">PEA — Retrait</div>
+        <div class="sr"><span class="sr-lbl">Arrêt versements (âge)</span><div class="sr-mid"><button class="pm" onclick="step('pea_a',-1)">−</button><input type="range" id="sl_pea_a" min="25" max="55" step="1" value="40" oninput="onSl('pea_a',this.value)"/><button class="pm" onclick="step('pea_a',+1)">+</button></div><span class="sr-val" id="vl_pea_a">40 ans</span></div>
+        <div class="sr"><span class="sr-lbl">Taux retrait (%/an)</span><div class="sr-mid"><button class="pm" onclick="step('pea_ret',-1)">−</button><input type="range" id="sl_pea_ret" min="0" max="15" step="1" value="4" oninput="onSl('pea_ret',this.value)"/><button class="pm" onclick="step('pea_ret',+1)">+</button></div><span class="sr-val" id="vl_pea_ret">4 %</span></div>
+      </div>
+      <div class="ctrl-col">
+        <div class="sec-title or">Crypto — Paramètres</div>
+        <div class="sr"><span class="sr-lbl">Capital initial Crypto (€)</span><div class="sr-mid"><button class="pm" onclick="step('cry_k',-1)">−</button><input type="range" id="sl_cry_k" min="0" max="100000" step="5000" value="0" oninput="onSl('cry_k',this.value)"/><button class="pm" onclick="step('cry_k',+1)">+</button></div><span class="sr-val" id="vl_cry_k">0 €</span></div>
+        <div class="sr"><span class="sr-lbl">Rendement début (%/an)</span><div class="sr-mid"><button class="pm" onclick="step('cry_r0',-1)">−</button><input type="range" id="sl_cry_r0" min="1" max="100" step="1" value="20" oninput="onSl('cry_r0',this.value)"/><button class="pm" onclick="step('cry_r0',+1)">+</button></div><span class="sr-val" id="vl_cry_r0">20 %</span></div>
+        <div class="sr"><span class="sr-lbl">Rendement fin (%/an)</span><div class="sr-mid"><button class="pm" onclick="step('cry_r1',-1)">−</button><input type="range" id="sl_cry_r1" min="0" max="50" step="1" value="6" oninput="onSl('cry_r1',this.value)"/><button class="pm" onclick="step('cry_r1',+1)">+</button></div><span class="sr-val" id="vl_cry_r1">6 %</span></div>
+        <div class="sec-title or">Crypto — Retrait</div>
+        <div class="sr"><span class="sr-lbl">Arrêt versements (âge)</span><div class="sr-mid"><button class="pm" onclick="step('cry_a',-1)">−</button><input type="range" id="sl_cry_a" min="25" max="55" step="1" value="40" oninput="onSl('cry_a',this.value)"/><button class="pm" onclick="step('cry_a',+1)">+</button></div><span class="sr-val" id="vl_cry_a">40 ans</span></div>
+        <div class="sr"><span class="sr-lbl">Taux retrait (%/an)</span><div class="sr-mid"><button class="pm" onclick="step('cry_ret',-1)">−</button><input type="range" id="sl_cry_ret" min="0" max="15" step="1" value="4" oninput="onSl('cry_ret',this.value)"/><button class="pm" onclick="step('cry_ret',+1)">+</button></div><span class="sr-val" id="vl_cry_ret">4 %</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- MODAL: Détail dépenses -->
+<div class="modal-overlay" id="modalDeps">
+  <div class="modal" style="max-width:420px;">
+    <button class="modal-close" onclick="closeModal('modalDeps')">✕</button>
+    <div class="modal-title" id="modalDepsTitle">Dépenses</div>
+    <div id="depsItemList"></div>
+    <div class="deps-total">
+      <span style="font-size:12px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:1px;">Total</span>
+      <span style="font-size:18px;font-weight:800;" id="depsTotalAmt">0 €</span>
+    </div>
+    <div class="deps-add-row">
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <label>Description (optionnel)</label>
+        <input type="text" id="depsNewLabel" placeholder="Ex : Lidl, loyer…" onkeydown="if(event.key==='Enter')addDepsItem()"/>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <label>Montant €</label>
+        <input type="number" id="depsNewAmount" placeholder="0" min="0" step="0.01" style="width:100px;" onkeydown="if(event.key==='Enter')addDepsItem()"/>
+      </div>
+      <button id="btnRecurring" onclick="toggleRecurring()" class="btn btn-ghost btn-sm" style="align-self:flex-end;white-space:nowrap;" title="Répéter chaque mois">🔁</button>
+      <button class="btn btn-primary btn-sm" onclick="addDepsItem()" style="align-self:flex-end;">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Ajouter
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Catégorie -->
+<div class="modal-overlay" id="modalCat">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modalCat')">✕</button>
+    <div class="modal-title" id="modalCatTitle">Nouvelle catégorie</div>
+    <input type="hidden" id="catEditId"/>
+    <div class="form-group">
+      <label>Type</label>
+      <div style="display:flex;gap:8px;">
+        <button id="catTypeDepense" onclick="setCatType('depense')" class="btn btn-sm" style="flex:1;">💸 Dépense</button>
+        <button id="catTypeRevenu" onclick="setCatType('revenu')" class="btn btn-sm" style="flex:1;">💵 Revenu</button>
+        <button id="catTypeInvest" onclick="setCatType('investissement')" class="btn btn-sm" style="flex:1;">📈 Invest.</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Nom</label>
+      <input type="text" id="catName" placeholder="Ex : Loyer"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Emoji / Icône</label>
+        <input type="text" id="catEmoji" placeholder="🏠" maxlength="4"/>
+      </div>
+      <div class="form-group">
+        <label id="catBudgetLabel">Budget par défaut (€)</label>
+        <input type="number" id="catBudget" placeholder="0" min="0" step="10"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Couleur</label>
+      <select id="catColor">
+        <option value="purple">Violet</option>
+        <option value="teal">Cyan</option>
+        <option value="green">Vert</option>
+        <option value="yellow">Jaune</option>
+        <option value="red">Rouge</option>
+        <option value="orange">Orange</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveCat()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('modalCat')">Annuler</button>
+      <button class="btn btn-danger btn-sm" id="btnDeleteCat" style="margin-left:auto;display:none;" onclick="deleteCat()">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Compte -->
+<div class="modal-overlay" id="modalCompte">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modalCompte')">✕</button>
+    <div class="modal-title" id="modalCompteTitle">Nouveau compte</div>
+    <input type="hidden" id="compteEditId"/>
+    <div class="form-group">
+      <label>Nom du compte</label>
+      <input type="text" id="compteName" placeholder="Ex : Livret A"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Type</label>
+        <select id="compteType">
+          <option value="courant">Compte courant</option>
+          <option value="epargne">Épargne (Livret)</option>
+          <option value="pea">PEA</option>
+          <option value="cto">CTO</option>
+          <option value="crypto">Crypto</option>
+          <option value="autre">Autre</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Solde actuel (€)</label>
+        <input type="number" id="compteSolde" placeholder="0" step="0.01"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Couleur</label>
+      <select id="compteCouleur">
+        <option value="#7c3aed">Violet</option>
+        <option value="#06b6d4">Cyan</option>
+        <option value="#10b981">Vert</option>
+        <option value="#f59e0b">Jaune</option>
+        <option value="#ef4444">Rouge</option>
+        <option value="#f97316">Orange</option>
+        <option value="#8b5cf6">Lavande</option>
+        <option value="#ec4899">Rose</option>
+      </select>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-primary" onclick="saveCompte()">Enregistrer</button>
+      <button class="btn btn-ghost" onclick="closeModal('modalCompte')">Annuler</button>
+      <button class="btn btn-danger btn-sm" id="btnDeleteCompte" style="margin-left:auto;display:none;" onclick="deleteCompte()">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<script defer src="budget.js"></script>
+</body>
+</html>

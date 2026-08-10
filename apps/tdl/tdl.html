@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<script src="../../demo/guard.js"></script>
+<script src="../../demo/seed-tdl.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>TDL — Tâches &amp; Planning</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'><circle cx='50' cy='50' r='38' stroke='%23a78bfa' stroke-width='4'/><circle cx='50' cy='50' r='13' fill='%238b5cf6'/><circle cx='69' cy='17.09' r='9' fill='%23f3f1fa'/></svg>">
+<!-- PWA -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#7c3aed">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TDL">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<script>(function(){try{if(window!==window.top){document.documentElement.classList.add('in-hub');var hs=document.createElement('style');hs.textContent='header{display:none!important}';document.head.appendChild(hs);}}catch(e){document.documentElement.classList.add('in-hub');}}());</script>
+<script>(function(){try{var app=/[?&]app=1(&|$)/.test(location.search)||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true;if(app)document.documentElement.classList.add('app-only');}catch(e){}}());</script>
+<link rel="stylesheet" href="tdl.css">
+</head>
+<body>
+
+<script src="constellation_bg.js"></script>
+
+<header>
+  <a class="logo" href="#" onclick="return false">
+    <div class="logo-icon">
+      <img src="logo.png" alt="Logo TDL" onerror="this.style.display='none'">
+    </div>
+    <div class="logo-name">TDL</div>
+  </a>
+
+  <nav class="tabs">
+    <button class="tab" data-tab="temps" onclick="switchTab('temps')">Temps</button>
+    <button class="tab" data-tab="schedule" onclick="switchTab('schedule')">Planning</button>
+    <button class="tab active" data-tab="tasks" onclick="switchTab('tasks')">Tâches<span class="tab-badge" id="tab-badge-tasks"></span></button>
+  </nav>
+
+  <div class="header-right">
+    <button class="icon-btn" id="settings-btn" onclick="openSettingsModal()" title="Réglages" aria-label="Réglages">⚙</button>
+  </div>
+</header>
+
+<div class="app">
+
+  <main>
+    <section id="view-tasks" class="view active">
+      <div class="card">
+        <div id="kpi-strip" class="kpi-strip"></div>
+
+        <div class="quick-add-row">
+          <form id="quick-add-form">
+            <input id="quick-add-input" type="text" placeholder="Ajouter une tâche… (Entrée)" autocomplete="off">
+            <button type="submit" id="quick-add-submit" aria-label="Ajouter la tâche"></button>
+          </form>
+          <button class="btn-ghost" onclick="openTaskModal(null)" title="Nouvelle tâche détaillée">Détails</button>
+        </div>
+
+        <div class="filter-bar">
+          <div class="filter-pills">
+            <button class="filter-pill active" data-filter="all">Tout</button>
+            <button class="filter-pill" data-filter="today">Aujourd'hui</button>
+            <button class="filter-pill" data-filter="upcoming">À venir</button>
+            <button class="filter-pill" data-filter="overdue">En retard</button>
+            <button class="filter-pill" data-filter="completed">Terminé</button>
+          </div>
+          <div class="filter-spacer"></div>
+          <input type="search" id="filter-search" placeholder="Rechercher…">
+          <select id="filter-category"></select>
+          <select id="filter-priority">
+            <option value="all">Toutes priorités</option>
+            <option value="urgent">Urgente</option>
+            <option value="high">Haute</option>
+            <option value="medium">Moyenne</option>
+            <option value="low">Basse</option>
+          </select>
+          <select id="filter-sort">
+            <option value="due">Trier: échéance</option>
+            <option value="priority">Trier: priorité</option>
+            <option value="created">Trier: création</option>
+          </select>
+        </div>
+
+        <div id="task-list"></div>
+      </div>
+    </section>
+
+    <section id="view-schedule" class="view">
+      <div class="card">
+        <div class="card-header" style="position:relative;">
+          <div>
+            <h2 class="card-title">Planning</h2>
+            <p class="card-sub" id="schedule-subtitle"></p>
+          </div>
+          <div id="today-date-badge" class="today-date-badge" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);"></div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-ghost small" onclick="openLayoutsModal()">Dispositions</button>
+            <button class="btn-primary small" onclick="openScheduleModal(null)">+ Créneau</button>
+          </div>
+        </div>
+
+        <div id="schedule-list"></div>
+      </div>
+    </section>
+
+    <section id="view-temps" class="view">
+      <div class="card">
+        <div id="temps-subtabs" class="temps-subtabs">
+          <button class="temps-subtab active" data-sub="today" onclick="setTempsSub('today')">Aujourd'hui</button>
+          <button class="temps-subtab" data-sub="week" onclick="setTempsSub('week')">Semaine</button>
+          <button class="temps-subtab" data-sub="stats" onclick="setTempsSub('stats')">Stats</button>
+          <button class="temps-subtab" data-sub="routines" onclick="setTempsSub('routines')">Routines</button>
+        </div>
+        <div id="temps-body"></div>
+      </div>
+    </section>
+  </main>
+
+</div>
+
+<div id="agenda-tooltip"></div>
+
+<!-- Task modal -->
+<div class="modal-overlay" id="task-modal-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeTaskModal()">✕</button>
+    <h3 class="modal-title" id="task-modal-title">Nouvelle tâche</h3>
+
+    <div class="field">
+      <label>Titre</label>
+      <input id="task-title" type="text" placeholder="Titre de la tâche">
+    </div>
+    <div class="field">
+      <label>Notes</label>
+      <textarea id="task-notes" rows="3" placeholder="Détails, notes…"></textarea>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Catégorie</label>
+        <input id="task-category" type="text" list="category-list" placeholder="Ex: Travail">
+        <datalist id="category-list"></datalist>
+      </div>
+      <div class="field">
+        <label>Priorité</label>
+        <select id="task-priority">
+          <option value="low">Basse</option>
+          <option value="medium" selected>Moyenne</option>
+          <option value="high">Haute</option>
+          <option value="urgent">Urgente</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Échéance</label>
+        <input id="task-due-date" type="date">
+      </div>
+      <div class="field">
+        <label>Heure</label>
+        <input id="task-due-time" type="time">
+      </div>
+    </div>
+    <div class="field switch-field">
+      <label>Se répète</label>
+      <label class="switch"><input id="task-recurrence-on" type="checkbox" onchange="document.getElementById('task-recurrence-days-field').style.display=this.checked?'':'none';"><span class="slider"></span></label>
+    </div>
+    <div class="field" id="task-recurrence-days-field" style="display:none;">
+      <label>Tous les combien de jours ? <span class="field-val">(compte depuis la validation)</span></label>
+      <input id="task-recurrence-days" type="number" min="1" max="365" value="1">
+    </div>
+    <div class="field">
+      <label>Sous-tâches</label>
+      <div id="subtask-list"></div>
+      <div class="subtask-add-row">
+        <input id="subtask-input" type="text" placeholder="Ajouter une sous-tâche…" onkeydown="if(event.key==='Enter'){event.preventDefault();addModalSubtask();}">
+        <button type="button" class="mini" onclick="addModalSubtask()">Ajouter</button>
+      </div>
+    </div>
+
+    <div class="modal-error" id="task-modal-error"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeTaskModal()">Annuler</button>
+      <button class="btn-primary" onclick="saveTaskFromModal()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Routine modal (onglet Temps) -->
+<div class="modal-overlay" id="routine-modal-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeRoutineModal()">✕</button>
+    <h3 class="modal-title" id="routine-modal-title">Nouvelle routine</h3>
+    <div class="field-row">
+      <div class="field" style="flex:0 0 84px;"><label>Emoji</label><input id="rt-emoji" type="text" maxlength="2" placeholder="💼"></div>
+      <div class="field"><label>Nom</label><input id="rt-name" type="text" placeholder="Ex: Travail"></div>
+    </div>
+    <div class="field">
+      <label>Type</label>
+      <select id="rt-type" onchange="onRoutineTypeChange()">
+        <option value="fixed">🔒 Fixe (horaire imposé)</option>
+        <option value="flexible" selected>🟡 Flexible (à caser)</option>
+        <option value="sommeil">😴 Sommeil (définit le coucher)</option>
+      </select>
+    </div>
+    <div class="field-row">
+      <div class="field" id="rt-start-field"><label id="rt-start-label">Horaire</label><input id="rt-start" type="time"></div>
+      <div class="field">
+        <label>Durée</label>
+        <div class="dur-row">
+          <input id="rt-dur-h" type="number" min="0" max="24" value="0"><span class="dur-unit">h</span>
+          <input id="rt-dur-m" type="number" min="0" max="59" step="5" value="30"><span class="dur-unit">min</span>
+        </div>
+      </div>
+    </div>
+    <div class="field" id="rt-count-field">
+      <label>Répétitions / jour <span class="field-val">(ex : 2 repas)</span></label>
+      <input id="rt-count" type="number" min="1" max="20" value="1" style="max-width:110px;">
+    </div>
+    <div class="field" id="rt-recur-field">
+      <label>Répétition</label>
+      <select id="rt-recur" onchange="onRoutineRecurChange()">
+        <option value="weekly" selected>📅 Jours de la semaine</option>
+        <option value="interval">↻ Tous les N jours (depuis la validation)</option>
+      </select>
+    </div>
+    <div class="field" id="rt-weekdays-field">
+      <label>Jours</label>
+      <div class="weekday-picker" id="rt-weekdays"></div>
+    </div>
+    <div class="field" id="rt-every-field">
+      <label>Tous les <span class="field-val">(jours, à partir de chaque validation)</span></label>
+      <div class="dur-row"><input id="rt-every" type="number" min="1" max="60" value="2"><span class="dur-unit">jours</span></div>
+    </div>
+    <div class="modal-error" id="routine-modal-error"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeRoutineModal()">Annuler</button>
+      <button class="btn-primary" onclick="saveRoutineFromModal()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Extra (activité ponctuelle) modal (onglet Temps) -->
+<div class="modal-overlay" id="extra-modal-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeExtraModal()">✕</button>
+    <h3 class="modal-title">Activité ponctuelle — aujourd'hui</h3>
+    <div class="field-row">
+      <div class="field" style="flex:0 0 84px;"><label>Emoji</label><input id="ex-emoji" type="text" maxlength="2" placeholder="✨"></div>
+      <div class="field"><label>Nom</label><input id="ex-name" type="text" placeholder="Ex: Sport (rattrapage)"></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Horaire <span class="field-val">(optionnel)</span></label><input id="ex-start" type="time"></div>
+      <div class="field">
+        <label>Durée</label>
+        <div class="dur-row">
+          <input id="ex-dur-h" type="number" min="0" max="24" value="0"><span class="dur-unit">h</span>
+          <input id="ex-dur-m" type="number" min="0" max="59" step="5" value="30"><span class="dur-unit">min</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-error" id="extra-modal-error"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeExtraModal()">Annuler</button>
+      <button class="btn-primary" onclick="saveExtraFromModal()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule modal -->
+<div class="modal-overlay" id="schedule-modal-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeScheduleModal()">✕</button>
+    <h3 class="modal-title" id="schedule-modal-title">Nouveau créneau</h3>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Début</label>
+        <input id="sched-start" type="time">
+      </div>
+      <div class="field">
+        <label>Fin</label>
+        <input id="sched-end" type="time">
+      </div>
+    </div>
+    <div class="field">
+      <label>Libellé</label>
+      <input id="sched-label" type="text" placeholder="Ex: Travail concentré">
+    </div>
+    <div class="field">
+      <label>Couleur</label>
+      <div class="color-swatch-picker" id="sched-color-picker"></div>
+      <input type="hidden" id="sched-color" value="#7c3aed">
+    </div>
+
+    <div class="modal-error" id="schedule-modal-error"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeScheduleModal()">Annuler</button>
+      <button class="btn-primary" onclick="saveScheduleBlockFromModal()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Layouts (dispositions) modal -->
+<div class="modal-overlay" id="layouts-modal-overlay">
+  <div class="modal modal-wide">
+    <button class="modal-close" onclick="closeLayoutsModal()">✕</button>
+    <h3 class="modal-title">Dispositions</h3>
+    <p class="card-sub" style="margin:-10px 0 16px;">Chaque jour de la semaine appartient à une seule disposition. Le planning affiche automatiquement celle du jour en cours.</p>
+
+    <div id="layouts-manage-list"></div>
+
+    <div class="layout-add-row" style="margin-top:14px;">
+      <input type="text" id="layout-add-name" placeholder="Nom de la disposition…" style="display:none;" onkeydown="if(event.key==='Enter'){event.preventDefault();handleLayoutAddClick();}">
+      <button type="button" class="mini" id="layout-add-btn" onclick="handleLayoutAddClick()">+ Nouvelle disposition</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="closeLayoutsModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modal-overlay" id="settings-modal-overlay">
+  <div class="modal modal-wide">
+    <button class="modal-close" onclick="closeSettingsModal()">✕</button>
+    <h3 class="modal-title">Réglages</h3>
+
+    <div class="field">
+      <label>Sauvegarde des données</label>
+      <div class="field-val" style="margin-bottom:8px;line-height:1.5;">Exporte tout (tâches, planning, routines, historique) dans un fichier — à conserver ou à t'envoyer par mail. L'import <b>remplace</b> toutes les données de cet appareil.</div>
+      <div class="backup-row">
+        <button type="button" class="mini" onclick="exportTdlData()">⬇ Exporter</button>
+        <button type="button" class="mini" onclick="document.getElementById('import-file').click()">⬆ Importer…</button>
+        <input type="file" id="import-file" accept="application/json,.json" style="display:none;" onchange="importTdlData(this)">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="closeSettingsModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script src="tdl.js"></script>
+<script>
+/* Enregistre le service worker uniquement en usage autonome (pas dans le hub Orbit),
+   et seulement en contexte sécurisé (https / localhost). Sinon on ne touche à rien. */
+(function () {
+  try {
+    if (window === window.top && 'serviceWorker' in navigator && window.isSecureContext) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('sw.js', { scope: './', updateViaCache: 'none' }).catch(function (e) {
+          console.warn('[TDL] SW non enregistré :', e);
+        });
+      });
+    }
+  } catch (e) {}
+}());
+</script>
+</body>
+</html>

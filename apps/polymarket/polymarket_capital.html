@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<script src="../../demo/guard.js"></script>
+<script src="../../demo/seed-poly.js"></script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Orbit — Capital Polymarket</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'><circle cx='50' cy='50' r='38' stroke='%23a78bfa' stroke-width='4'/><circle cx='50' cy='50' r='13' fill='%238b5cf6'/><circle cx='69' cy='17.09' r='9' fill='%23f3f1fa'/></svg>"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<script>(function(){try{var t=localStorage.getItem('tjournal_theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}try{if(window!==window.top){document.documentElement.classList.add('in-hub');var hs=document.createElement('style');hs.textContent='header{display:none!important}';document.head.appendChild(hs);}}catch(e){document.documentElement.classList.add('in-hub');}}());</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="polymarket_capital.css"/>
+</head>
+<body>
+<script src="chromatic_waves_bg.js"></script>
+
+<header>
+  <div class="logo">
+    <span class="logo-icon">
+      <svg viewBox="0 0 100 100" width="28" height="28" fill="none" aria-hidden="true">
+        <circle cx="50" cy="50" r="38" stroke="#a78bfa" stroke-width="3.5"/>
+        <circle cx="50" cy="50" r="12" fill="#8b5cf6"/>
+        <circle cx="50" cy="12" r="8" fill="#f3f1fa"/>
+      </svg>
+    </span>
+    <span class="logo-name">Orbit</span>
+  </div>
+  <span class="page-title">Suivi Capital Polymarket</span>
+  <div class="header-right">
+    <button class="icon-btn" id="settings-btn" onclick="openBgSettingsModal()" title="Réglages du fond animé" aria-label="Réglages du fond animé">⚙</button>
+  </div>
+</header>
+
+<!-- Settings modal (fond animé Chromatic Waves) -->
+<div class="modal-overlay" id="settings-modal-overlay">
+  <div class="modal">
+    <button class="modal-close" onclick="closeBgSettingsModal()">✕</button>
+    <h3 class="modal-title">Réglages du fond animé</h3>
+
+    <div class="field">
+      <label>Fréquence <span class="field-val" id="set-frequency-val"></span></label>
+      <input id="set-frequency" type="range" min="1" max="10" step="0.5"/>
+    </div>
+    <div class="field">
+      <label>Vitesse <span class="field-val" id="set-speed-val"></span></label>
+      <input id="set-speed" type="range" min="0" max="20" step="0.5"/>
+    </div>
+    <div class="field">
+      <label>Taille des cellules <span class="field-val" id="set-cellSize-val"></span></label>
+      <input id="set-cellSize" type="range" min="1" max="100" step="1"/>
+    </div>
+    <div class="field">
+      <label>Gamma <span class="field-val" id="set-gamma-val"></span></label>
+      <input id="set-gamma" type="range" min="1" max="20" step="0.5"/>
+    </div>
+    <div class="field">
+      <label>Biais de palette <span class="field-val" id="set-paletteBias-val"></span></label>
+      <input id="set-paletteBias" type="range" min="-20" max="20" step="1"/>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label>Couleur 1</label>
+        <input id="set-color1" type="color"/>
+      </div>
+      <div class="field">
+        <label>Opacité 1 <span class="field-val" id="set-alpha1-val"></span></label>
+        <input id="set-alpha1" type="range" min="0" max="1" step="0.05"/>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Couleur 2</label>
+        <input id="set-color2" type="color"/>
+      </div>
+      <div class="field">
+        <label>Opacité 2 <span class="field-val" id="set-alpha2-val"></span></label>
+        <input id="set-alpha2" type="range" min="0" max="1" step="0.05"/>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Couleur 3</label>
+        <input id="set-color3" type="color"/>
+      </div>
+      <div class="field">
+        <label>Opacité 3 <span class="field-val" id="set-alpha3-val"></span></label>
+        <input id="set-alpha3" type="range" min="0" max="1" step="0.05"/>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="resetBgSettings()">Réinitialiser</button>
+      <button class="btn btn-primary" onclick="closeBgSettingsModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div class="content">
+
+  <div class="card">
+    <div class="card-title">Enregistrer le capital du jour</div>
+    <div class="entry-row">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="entryDate"/>
+      </div>
+      <div class="form-group">
+        <label>Capital ($)</label>
+        <input type="number" step="any" id="entryCapital" placeholder="ex : 1250.50"/>
+      </div>
+      <button class="btn btn-primary" id="saveBtn">Enregistrer</button>
+    </div>
+  </div>
+
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="card">
+    <div class="card-title">Évolution</div>
+    <div class="chart-wrap" id="chartWrap"><canvas id="capitalChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Historique</div>
+    <table>
+      <thead><tr><th>Date</th><th>Capital</th><th>Variation</th><th></th></tr></thead>
+      <tbody id="historyBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script src="polymarket_capital.js"></script>
+</body>
+</html>
