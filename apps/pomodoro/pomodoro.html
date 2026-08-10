@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<script src="../../demo/guard.js"></script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pomodoro · Orbit</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'><circle cx='50' cy='50' r='38' stroke='%23a78bfa' stroke-width='4'/><circle cx='50' cy='50' r='13' fill='%238b5cf6'/><circle cx='69' cy='17.09' r='9' fill='%23f3f1fa'/></svg>"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@700&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  background:#07071a;
+  font-family:'Inter',system-ui,sans-serif;
+  color:#fff;
+  overflow-x:hidden;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ── Décor spatial (repris de hub.html) ── */
+.h-orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0;transform:translateZ(0);}
+.h-orb-1{width:900px;height:900px;top:-380px;right:-280px;background:radial-gradient(circle,rgba(255,255,255,0.13) 0%,rgba(200,180,255,0.07) 28%,rgba(120,80,255,0.04) 50%,transparent 68%);filter:blur(55px);}
+.h-orb-2{width:700px;height:600px;bottom:-250px;left:-200px;background:radial-gradient(ellipse,rgba(109,40,217,0.2) 0%,rgba(80,30,180,0.07) 50%,transparent 72%);filter:blur(80px);}
+.h-orb-3{width:480px;height:420px;bottom:-100px;right:10%;background:radial-gradient(ellipse,rgba(6,182,212,0.12) 0%,transparent 68%);filter:blur(70px);}
+.h-orb-4{width:600px;height:260px;top:0;left:50%;transform:translateX(-50%) translateZ(0);background:radial-gradient(ellipse at 50% 0%,rgba(80,50,200,0.1) 0%,transparent 70%);filter:blur(60px);}
+.h-stars{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(1px 1px at 7% 11%,rgba(255,255,255,0.5) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 18% 68%,rgba(255,255,255,0.3) 0%,transparent 100%),radial-gradient(1px 1px at 28% 6%,rgba(255,255,255,0.4) 0%,transparent 100%),radial-gradient(1px 1px at 39% 53%,rgba(255,255,255,0.25) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 51% 28%,rgba(255,255,255,0.35) 0%,transparent 100%),radial-gradient(1px 1px at 61% 84%,rgba(255,255,255,0.3) 0%,transparent 100%),radial-gradient(1px 1px at 67% 17%,rgba(255,255,255,0.4) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 75% 62%,rgba(255,255,255,0.25) 0%,transparent 100%),radial-gradient(1px 1px at 84% 4%,rgba(255,255,255,0.45) 0%,transparent 100%),radial-gradient(1px 1px at 91% 47%,rgba(255,255,255,0.3) 0%,transparent 100%),radial-gradient(1.5px 1.5px at 95% 85%,rgba(255,255,255,0.35) 0%,transparent 100%),radial-gradient(1px 1px at 13% 38%,rgba(255,255,255,0.2) 0%,transparent 100%),radial-gradient(1px 1px at 44% 91%,rgba(255,255,255,0.28) 0%,transparent 100%),radial-gradient(1px 1px at 56% 9%,rgba(255,255,255,0.38) 0%,transparent 100%);}
+
+/* ── App shell ── */
+.app{
+  position:relative; z-index:1;
+  min-height:100vh;
+  display:flex; flex-direction:column; align-items:center;
+}
+
+.topbar{
+  width:100%; max-width:640px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:22px 20px 0;
+}
+.brand{display:flex;align-items:center;gap:9px;}
+.brand svg{filter:drop-shadow(0 0 10px rgba(139,92,246,0.5));}
+.brand-word{
+  font-family:'Syne',sans-serif; font-weight:700; font-size:16px;
+  background:linear-gradient(120deg,#ffffff,#a78bfa);
+  -webkit-background-clip:text; background-clip:text; color:transparent;
+}
+
+.icon-btn{
+  width:36px; height:36px; border-radius:10px; flex-shrink:0;
+  border:1px solid rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.04);
+  color:rgba(255,255,255,0.55);
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; transition:all 0.16s ease;
+}
+.icon-btn:hover{background:rgba(255,255,255,0.09);color:#fff;border-color:rgba(255,255,255,0.22);}
+.icon-btn:focus-visible{outline:2px solid rgba(167,139,250,0.9);outline-offset:2px;}
+
+/* ── Pastilles de mode ── */
+.mode-pills{display:flex;gap:6px;margin-top:18px;padding:4px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:13px;}
+.mode-pill{
+  padding:8px 15px; border-radius:9px; border:1px solid transparent;
+  background:transparent; color:rgba(255,255,255,0.5);
+  font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600;
+  letter-spacing:0.02em; cursor:pointer; transition:all 0.16s ease;
+}
+.mode-pill:hover{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.85);}
+.mode-pill.active{background:rgba(139,92,246,0.18);border-color:rgba(167,139,250,0.35);color:#c4b5fd;}
+.mode-pill.active.is-break{background:rgba(6,182,212,0.16);border-color:rgba(34,211,238,0.35);color:#67e8f9;}
+.mode-pill:focus-visible{outline:2px solid rgba(167,139,250,0.9);outline-offset:2px;}
+
+/* ── Scène orbitale ── */
+.stage-wrap{display:flex;justify-content:center;width:100%;margin:22px 0 8px;}
+.stage{
+  position:relative;width:min(78vmin,620px);height:min(78vmin,620px);cursor:default;
+  opacity:0; transform:scale(0.92);
+  transition:opacity 1100ms cubic-bezier(0.16,1,0.3,1), transform 1100ms cubic-bezier(0.16,1,0.3,1);
+}
+.stage.is-ready{opacity:1;transform:scale(1);}
+#orbit-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+.readout{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:6px; pointer-events:none;
+}
+.time{
+  font-family:'Space Grotesk',system-ui,sans-serif; font-weight:600;
+  font-size:clamp(26px,5.6vmin,44px); line-height:1; letter-spacing:-0.01em;
+  color:#ffffff; text-shadow:0 0 22px rgba(139,92,246,0.3);
+}
+.mode-label{
+  font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600;
+  color:rgba(255,255,255,0.45); text-transform:uppercase; letter-spacing:0.16em;
+}
+.session-dots{display:flex;gap:6px;margin-top:6px;}
+.session-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.22);transition:all 0.2s ease;}
+.session-dot.filled{background:#a78bfa;border-color:#a78bfa;box-shadow:0 0 7px rgba(167,139,250,0.7);}
+
+/* ── Contrôles ── */
+.controls{display:flex;align-items:center;justify-content:center;gap:10px;padding:18px 20px 40px;}
+
+.btn{
+  padding:10px 22px; border-radius:10px; border:1px solid transparent;
+  font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px;
+  display:inline-flex; align-items:center; gap:6px;
+  cursor:pointer; transition:all 0.18s ease; white-space:nowrap;
+}
+.btn:focus-visible{outline:2px solid rgba(167,139,250,0.9);outline-offset:2px;}
+.btn-primary{
+  background:linear-gradient(135deg,#8b47f0,#6527d0); color:#fff;
+  box-shadow:0 10px 26px rgba(124,58,237,0.38);
+  min-width:132px; justify-content:center;
+}
+.btn-primary:hover{filter:brightness(1.1);}
+.btn-ghost{
+  background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.7);
+  border-color:rgba(255,255,255,0.1);
+}
+.btn-ghost:hover{background:rgba(255,255,255,0.09);border-color:rgba(255,255,255,0.22);color:#fff;}
+
+/* ── Modale réglages ── */
+.modal-overlay{
+  position:fixed; inset:0; z-index:50;
+  background:rgba(7,7,26,0.88);
+  backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+  display:none; align-items:center; justify-content:center;
+  padding:20px;
+}
+.modal-overlay.open{display:flex;}
+.modal{
+  position:relative; width:min(92vw,420px);
+  background:rgba(8,7,28,0.96);
+  border:1px solid rgba(124,58,237,0.22);
+  border-radius:22px;
+  box-shadow:0 40px 80px rgba(0,0,0,0.75);
+  padding:28px 26px 24px;
+  max-height:90vh; overflow-y:auto;
+}
+.modal::before{
+  content:''; position:absolute; top:0; left:10%; right:10%; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(139,92,246,0.55) 30%,rgba(6,182,212,0.55) 70%,transparent);
+}
+.modal h2{font-family:'Space Grotesk',system-ui,sans-serif;font-size:19px;margin-bottom:20px;}
+.modal-close{
+  position:absolute; top:14px; right:14px; width:30px; height:30px;
+  border-radius:8px; border:1px solid rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.05); color:rgba(255,255,255,0.6);
+  font-size:17px; line-height:1; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all 0.16s ease;
+}
+.modal-close:hover{background:rgba(239,68,68,0.15);border-color:rgba(239,68,68,0.4);color:#ef4444;}
+
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.field label{font-size:11px;font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.06em;}
+.field input[type="number"]{
+  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);
+  border-radius:8px; padding:9px 11px; color:#fff;
+  font-family:'Inter',sans-serif; font-size:14px; width:100%;
+}
+.field input[type="number"]:focus{outline:none;border-color:rgba(167,139,250,0.6);}
+.field label{display:flex;align-items:center;justify-content:space-between;}
+.field-val{font-variant-numeric:tabular-nums;color:#c4b5fd;font-weight:700;letter-spacing:0;text-transform:none;}
+.field input[type="range"]{
+  -webkit-appearance:none; appearance:none; width:100%; height:4px;
+  border-radius:999px; background:rgba(255,255,255,0.12); outline:none;
+}
+.field input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:16px; height:16px; border-radius:50%;
+  background:#7c3aed; cursor:pointer; border:2px solid rgba(255,255,255,0.9);
+  box-shadow:0 2px 8px rgba(0,0,0,0.4);
+}
+.field input[type="range"]::-moz-range-thumb{
+  width:16px; height:16px; border-radius:50%; background:#7c3aed; cursor:pointer;
+  border:2px solid rgba(255,255,255,0.9); box-shadow:0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* Presets sphère centrale */
+.preset-row{display:flex;gap:6px;margin-top:6px;}
+.preset-row select,.preset-row input[type="text"]{
+  flex:1; min-width:0; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);
+  border-radius:8px; padding:8px 9px; color:#fff;
+  font-family:'Inter',sans-serif; font-size:13px;
+}
+.preset-row select:focus,.preset-row input[type="text"]:focus{outline:none;border-color:rgba(167,139,250,0.6);}
+/* Les options d'un <select> ignorent souvent le fond semi-transparent du
+   parent (rendues par le système, pas par ce CSS) : fond opaque explicite
+   pour ne pas se retrouver avec du texte blanc sur fond blanc. */
+.preset-row select option{background:#14132b;color:#fff;}
+.preset-row .btn{padding:8px 12px;font-size:12px;white-space:nowrap;}
+
+.switch-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(255,255,255,0.06);}
+.switch-row span{font-size:13.5px;color:rgba(255,255,255,0.8);}
+.switch-row:last-of-type{border-bottom:none;margin-bottom:6px;}
+.switch{position:relative;width:38px;height:22px;flex-shrink:0;}
+.switch input{opacity:0;width:0;height:0;position:absolute;}
+.switch .slider{position:absolute;inset:0;background:rgba(255,255,255,0.15);border-radius:999px;cursor:pointer;transition:background 0.18s;}
+.switch .slider::before{content:'';position:absolute;width:16px;height:16px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform 0.18s;}
+.switch input:checked + .slider{background:#7c3aed;}
+.switch input:checked + .slider::before{transform:translateX(16px);}
+.switch input:focus-visible + .slider{outline:2px solid rgba(167,139,250,0.9);outline-offset:2px;}
+
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+
+@media (max-width:420px){
+  .topbar{padding:18px 16px 0;}
+  .controls{gap:8px;}
+  .btn{padding:9px 16px;font-size:12.5px;}
+  .btn-primary{min-width:112px;}
+}
+</style>
+</head>
+<body>
+
+<div class="h-orb h-orb-1"></div>
+<div class="h-orb h-orb-2"></div>
+<div class="h-orb h-orb-3"></div>
+<div class="h-orb h-orb-4"></div>
+<div class="h-stars"></div>
+
+<div class="app">
+
+  <header class="topbar">
+    <span class="brand">
+      <svg viewBox="0 0 100 100" width="26" height="26" fill="none" aria-hidden="true">
+        <circle cx="50" cy="50" r="38" stroke="#a78bfa" stroke-width="4"/>
+        <circle cx="50" cy="50" r="13" fill="#8b5cf6"/>
+        <circle cx="50" cy="12" r="9" fill="#f3f1fa"/>
+      </svg>
+      <span class="brand-word">Pomodoro</span>
+    </span>
+    <button class="icon-btn" id="settings-btn" title="Réglages" aria-label="Ouvrir les réglages">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </header>
+
+  <div class="mode-pills">
+    <button class="mode-pill active" id="mode-switch-btn" title="Changer de mode" aria-label="Changer de mode de session">Focus</button>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="stage" id="stage">
+      <canvas id="orbit-canvas"></canvas>
+      <div class="readout" aria-live="polite">
+        <div class="time" id="time-readout">25:00</div>
+        <div class="mode-label" id="mode-label">Focus</div>
+        <div class="session-dots" id="session-dots"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-ghost" id="reset-btn">Réinitialiser</button>
+    <button class="btn btn-primary" id="startpause-btn">Démarrer</button>
+    <button class="btn btn-ghost" id="skip-btn">Passer</button>
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="settings-overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <button class="modal-close" id="settings-close" aria-label="Fermer les réglages">&times;</button>
+    <h2 id="settings-title">Réglages</h2>
+
+    <div class="field">
+      <label for="set-focus">Focus (minutes)</label>
+      <input type="number" id="set-focus" min="1" max="180" step="1">
+    </div>
+    <div class="field">
+      <label for="set-short">Pause courte (minutes)</label>
+      <input type="number" id="set-short" min="1" max="60" step="1">
+    </div>
+    <div class="field">
+      <label for="set-long">Pause longue (minutes)</label>
+      <input type="number" id="set-long" min="1" max="120" step="1">
+    </div>
+    <div class="field">
+      <label for="set-cycle">Sessions avant pause longue</label>
+      <input type="number" id="set-cycle" min="1" max="12" step="1">
+    </div>
+
+    <div class="switch-row">
+      <span>Son de fin de session</span>
+      <label class="switch">
+        <input type="checkbox" id="set-sound">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="switch-row">
+      <span>Enchaîner automatiquement</span>
+      <label class="switch">
+        <input type="checkbox" id="set-auto">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <h2 style="font-size:14px;margin-top:22px;margin-bottom:14px;color:rgba(255,255,255,0.55)">Sphère centrale</h2>
+
+    <div class="field">
+      <label for="set-planet-density">Densité (points) <span class="field-val" id="set-planet-density-val"></span></label>
+      <input type="range" id="set-planet-density" min="500" max="8000" step="100">
+    </div>
+    <div class="field">
+      <label for="set-planet-spin">Vitesse de rotation <span class="field-val" id="set-planet-spin-val"></span></label>
+      <input type="range" id="set-planet-spin" min="0" max="0.02" step="0.001">
+    </div>
+    <div class="field">
+      <label for="set-noise-large">Amplitude du relief (grand) <span class="field-val" id="set-noise-large-val"></span></label>
+      <input type="range" id="set-noise-large" min="0" max="0.3" step="0.01">
+    </div>
+    <div class="field">
+      <label for="set-noise-large-freq">Fréquence du relief (grand) <span class="field-val" id="set-noise-large-freq-val"></span></label>
+      <input type="range" id="set-noise-large-freq" min="0" max="0.05" step="0.001">
+    </div>
+    <div class="field">
+      <label for="set-noise-detail">Amplitude du relief (détail) <span class="field-val" id="set-noise-detail-val"></span></label>
+      <input type="range" id="set-noise-detail" min="0" max="0.5" step="0.01">
+    </div>
+    <div class="field">
+      <label for="set-noise-detail-freq">Fréquence du relief (détail) <span class="field-val" id="set-noise-detail-freq-val"></span></label>
+      <input type="range" id="set-noise-detail-freq" min="0" max="5" step="0.1">
+    </div>
+    <div class="field">
+      <label for="set-planet-reactivity">Réactivité au survol <span class="field-val" id="set-planet-reactivity-val"></span></label>
+      <input type="range" id="set-planet-reactivity" min="0" max="0.2" step="0.005">
+    </div>
+
+    <div class="field">
+      <label>Presets de la sphère</label>
+      <div class="preset-row">
+        <select id="preset-select"><option value="">— Presets enregistrés —</option></select>
+        <button type="button" class="btn btn-ghost" id="preset-load-btn">Charger</button>
+        <button type="button" class="btn btn-ghost" id="preset-delete-btn">Suppr.</button>
+      </div>
+      <div class="preset-row">
+        <input type="text" id="preset-name-input" placeholder="Nom du nouveau preset" maxlength="40">
+        <button type="button" class="btn btn-ghost" id="preset-save-btn">Sauvegarder</button>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="settings-cancel">Annuler</button>
+      <button class="btn btn-primary" id="settings-save">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  function logAppError(context, err) {
+    console.error('[Pomodoro]', context, err);
+  }
+
+  // ── Constantes & état par défaut ─────────────────────────
+  var STORAGE_KEY = 'pomodoro_state';
+
+  var MODE_COLORS = {
+    focus:      { core:{r:139,g:92,b:246},  ring:{r:167,g:139,b:250}, accent:{r:124,g:58,b:237} },
+    shortBreak: { core:{r:6,g:182,b:212},   ring:{r:34,g:211,b:238},  accent:{r:8,g:145,b:178}  },
+    longBreak:  { core:{r:34,g:211,b:238},  ring:{r:103,g:232,b:249}, accent:{r:14,g:116,b:144} }
+  };
+  var MODE_LABELS = { focus:'Focus', shortBreak:'Pause courte', longBreak:'Pause longue' };
+
+  function defaultState() {
+    var focusMs = 25 * 60000;
+    return {
+      version: 1,
+      settings: {
+        focusMin: 25, shortBreakMin: 5, longBreakMin: 15,
+        sessionsBeforeLongBreak: 4, soundOn: true, autoStartNext: false,
+        planetDensity: 4500, planetSpinSpeed: 0.004,
+        noiseAmpLarge: 0.07, noiseFreqLarge: 0.01,
+        noiseAmpDetail: 0.2, noiseFreqDetail: 1.9,
+        planetReactivity: 0.06
+      },
+      session: {
+        mode: 'focus', focusCount: 0, running: false,
+        endTimestamp: null, remainingMs: focusMs, durationMs: focusMs
+      }
+    };
+  }
+
+  function modeDurationMs(mode, settings) {
+    if (mode === 'shortBreak') return settings.shortBreakMin * 60000;
+    if (mode === 'longBreak') return settings.longBreakMin * 60000;
+    return settings.focusMin * 60000;
+  }
+
+  function loadState() {
+    var d = defaultState();
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return d;
+      var parsed = JSON.parse(raw);
+      return {
+        version: 1,
+        settings: Object.assign({}, d.settings, parsed.settings || {}),
+        session: Object.assign({}, d.session, parsed.session || {})
+      };
+    } catch (err) {
+      logAppError('loadState: JSON.parse a échoué sur pomodoro_state, retour aux valeurs par défaut', err);
+      return d;
+    }
+  }
+
+  var state = loadState();
+
+  // Appelée uniquement sur changement d'état réel (démarrer/pause/reset/
+  // réglages/fin d'intervalle) — jamais en continu pendant le décompte, cf.
+  // engineTick plus bas.
+  function persist() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (err) {
+      logAppError('persist: échec localStorage.setItem (quota plein ou navigation privée ?)', err);
+    }
+  }
+
+  // ── Rattrapage au chargement (onglet resté fermé pendant un décompte) ──
+  function advanceMode() {
+    var s = state.session;
+    if (s.mode === 'focus') {
+      s.focusCount += 1;
+      s.mode = (s.focusCount % state.settings.sessionsBeforeLongBreak === 0) ? 'longBreak' : 'shortBreak';
+    } else {
+      s.mode = 'focus';
+    }
+  }
+
+  function resolveOnLoad() {
+    var s = state.session;
+    if (!s.running || !s.endTimestamp) return;
+    var remaining = s.endTimestamp - Date.now();
+    var guard = 0;
+    while (remaining <= 0 && guard < 200) {
+      guard++;
+      advanceMode();
+      var dur = modeDurationMs(s.mode, state.settings);
+      s.durationMs = dur;
+      if (state.settings.autoStartNext) {
+        remaining += dur;
+        s.remainingMs = Math.max(0, remaining);
+        s.endTimestamp = Date.now() + s.remainingMs;
+      } else {
+        s.running = false;
+        s.endTimestamp = null;
+        s.remainingMs = dur;
+        remaining = 1; // sort de la boucle
+      }
+    }
+    if (s.running) {
+      s.remainingMs = Math.max(0, s.endTimestamp - Date.now());
+    }
+  }
+  resolveOnLoad();
+
+  // ── DOM refs ──────────────────────────────────────────────
+  var stageEl = document.getElementById('stage');
+  var canvas = document.getElementById('orbit-canvas');
+  var ctx = canvas.getContext('2d');
+  var timeEl = document.getElementById('time-readout');
+  var modeLabelEl = document.getElementById('mode-label');
+  var dotsEl = document.getElementById('session-dots');
+  var startPauseBtn = document.getElementById('startpause-btn');
+  var resetBtn = document.getElementById('reset-btn');
+  var skipBtn = document.getElementById('skip-btn');
+  var modeSwitchBtn = document.getElementById('mode-switch-btn');
+  var MODE_ORDER = ['focus', 'shortBreak', 'longBreak'];
+
+  var settingsBtn = document.getElementById('settings-btn');
+  var settingsOverlay = document.getElementById('settings-overlay');
+  var settingsClose = document.getElementById('settings-close');
+  var settingsCancel = document.getElementById('settings-cancel');
+  var settingsSave = document.getElementById('settings-save');
+  var fFocus = document.getElementById('set-focus');
+  var fShort = document.getElementById('set-short');
+  var fLong = document.getElementById('set-long');
+  var fCycle = document.getElementById('set-cycle');
+  var fSound = document.getElementById('set-sound');
+  var fAuto = document.getElementById('set-auto');
+  var fPlanetDensity    = document.getElementById('set-planet-density');
+  var fPlanetSpin       = document.getElementById('set-planet-spin');
+  var fNoiseLarge       = document.getElementById('set-noise-large');
+  var fNoiseLargeFreq   = document.getElementById('set-noise-large-freq');
+  var fNoiseDetail      = document.getElementById('set-noise-detail');
+  var fNoiseDetailFreq  = document.getElementById('set-noise-detail-freq');
+  var fPlanetReactivity = document.getElementById('set-planet-reactivity');
+  // Affichage de la valeur courante à côté de chaque slider, mis à jour en direct
+  [fPlanetDensity, fPlanetSpin, fNoiseLarge, fNoiseLargeFreq, fNoiseDetail, fNoiseDetailFreq, fPlanetReactivity].forEach(function (input) {
+    var out = document.getElementById(input.id + '-val');
+    input.addEventListener('input', function () { out.textContent = input.value; });
+  });
+  var presetSelect     = document.getElementById('preset-select');
+  var presetLoadBtn    = document.getElementById('preset-load-btn');
+  var presetDeleteBtn  = document.getElementById('preset-delete-btn');
+  var presetNameInput  = document.getElementById('preset-name-input');
+  var presetSaveBtn    = document.getElementById('preset-save-btn');
+
+  // ── Son ───────────────────────────────────────────────────
+  var audioCtx = null;
+  function ensureAudioCtx() {
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    } catch (err) {
+      logAppError('ensureAudioCtx: AudioContext indisponible', err);
+    }
+  }
+  // Un seul objet Audio, préchargé dès le démarrage et réutilisé à chaque
+  // carillon. Le launcher sert le statique en Cache-Control: no-store, donc
+  // `new Audio(...)` à chaque appel re-télécharge et redécode le fichier à
+  // chaque fois — source d'un petit freeze au moment exact où l'intervalle
+  // se termine. En le créant une seule fois ici et en le rejouant ensuite
+  // (currentTime = 0), le décodage n'a lieu qu'au chargement de la page.
+  var chimeAudio = new Audio('sounds/crow.mp3');
+  chimeAudio.volume = 0.7;
+  chimeAudio.preload = 'auto';
+  function playChime() {
+    if (!state.settings.soundOn) return;
+    try {
+      chimeAudio.currentTime = 0;
+      chimeAudio.play().catch(function (err) {
+        logAppError('playChime: lecture du son crow.mp3 impossible (bloqué par la politique autoplay ?)', err);
+      });
+    } catch (err) {
+      logAppError('playChime: lecture du son crow.mp3 impossible', err);
+    }
+  }
+
+  // ── Transition de couleur entre modes ────────────────────
+  // `out` optionnel : si fourni, le résultat y est écrit (mutation en place)
+  // au lieu d'allouer un nouvel objet — utilisé par planetNoiseColor, appelée
+  // pour chaque point de la sphère centrale (jusqu'à des milliers par frame),
+  // où une allocation par appel avait fini par saturer le tas JS (cause du
+  // freeze périodique : le ramasse-miettes devait souffler toutes les 3-4s).
+  function lerpC(a, b, t, out) {
+    if (!out) out = {};
+    out.r = a.r + (b.r - a.r) * t;
+    out.g = a.g + (b.g - a.g) * t;
+    out.b = a.b + (b.b - a.b) * t;
+    return out;
+  }
+  function lerpSet(a, b, t) {
+    return { core: lerpC(a.core, b.core, t), ring: lerpC(a.ring, b.ring, t), accent: lerpC(a.accent, b.accent, t) };
+  }
+  function rgba(c, a) { return 'rgba(' + (c.r | 0) + ',' + (c.g | 0) + ',' + (c.b | 0) + ',' + a + ')'; }
+  function clamp01(v) { return v < 0 ? 0 : (v > 1 ? 1 : v); }
+  function hexToRgb(hex) {
+    var h = hex.replace('#', '');
+    return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) };
+  }
+  function smoothstep(e0, e1, x) {
+    var t = clamp01((x - e0) / (e1 - e0));
+    return t * t * (3 - 2 * t);
+  }
+
+  // ── Bruit simplex 3D (portage JS du shader "particle-sphere noise displacement") ──
+  // random3 écrit dans `out` (tableau à 3 cases) au lieu d'en allouer un
+  // nouveau à chaque appel. snoise3 est appelée 2x par point de la sphère
+  // centrale (jusqu'à des milliers par frame), et appelle random3 4x à
+  // chaque fois — l'allocation d'un tableau par appel finissait par générer
+  // plusieurs millions d'allocations/seconde, saturant le tas JS toutes les
+  // 3-4s (cause du freeze périodique observé, confirmé par un relevé mémoire
+  // en dents de scie synchronisé avec les micro-freezes).
+  function random3(cx, cy, cz, out) {
+    var j = 4096.0 * Math.sin(cx * 17.0 + cy * 59.4 + cz * 15.0);
+    var rz = j * 512.0 - Math.floor(j * 512.0);
+    j *= 0.125;
+    var rx = j * 512.0 - Math.floor(j * 512.0);
+    j *= 0.125;
+    var ry = j * 512.0 - Math.floor(j * 512.0);
+    out[0] = rx - 0.5; out[1] = ry - 0.5; out[2] = rz - 0.5;
+    return out;
+  }
+  var _r0 = [0, 0, 0], _r1 = [0, 0, 0], _r2 = [0, 0, 0], _r3 = [0, 0, 0];
+  function snoise3(px, py, pz) {
+    var F3 = 0.3333333, G3 = 0.1666667;
+    var sSum = (px + py + pz) * F3;
+    var sx = Math.floor(px + sSum), sy = Math.floor(py + sSum), sz = Math.floor(pz + sSum);
+    var gSum = (sx + sy + sz) * G3;
+    var xx = px - sx + gSum, xy = py - sy + gSum, xz = pz - sz + gSum;
+
+    var ex = (xx - xy) >= 0 ? 1 : 0;
+    var ey = (xy - xz) >= 0 ? 1 : 0;
+    var ez = (xz - xx) >= 0 ? 1 : 0;
+
+    var i1x = ex * (1 - ez), i1y = ey * (1 - ex), i1z = ez * (1 - ey);
+    var i2x = 1 - ez * (1 - ex), i2y = 1 - ex * (1 - ey), i2z = 1 - ey * (1 - ez);
+
+    var x1x = xx - i1x + G3, x1y = xy - i1y + G3, x1z = xz - i1z + G3;
+    var x2x = xx - i2x + 2 * G3, x2y = xy - i2y + 2 * G3, x2z = xz - i2z + 2 * G3;
+    var x3x = xx - 1 + 3 * G3, x3y = xy - 1 + 3 * G3, x3z = xz - 1 + 3 * G3;
+
+    var wx = Math.max(0.6 - (xx * xx + xy * xy + xz * xz), 0);
+    var wy = Math.max(0.6 - (x1x * x1x + x1y * x1y + x1z * x1z), 0);
+    var wz = Math.max(0.6 - (x2x * x2x + x2y * x2y + x2z * x2z), 0);
+    var ww = Math.max(0.6 - (x3x * x3x + x3y * x3y + x3z * x3z), 0);
+
+    var r0 = random3(sx, sy, sz, _r0);
+    var r1 = random3(sx + i1x, sy + i1y, sz + i1z, _r1);
+    var r2 = random3(sx + i2x, sy + i2y, sz + i2z, _r2);
+    var r3 = random3(sx + 1, sy + 1, sz + 1, _r3);
+
+    var dx = r0[0] * xx + r0[1] * xy + r0[2] * xz;
+    var dy = r1[0] * x1x + r1[1] * x1y + r1[2] * x1z;
+    var dz = r2[0] * x2x + r2[1] * x2y + r2[2] * x2z;
+    var dw = r3[0] * x3x + r3[1] * x3y + r3[2] * x3z;
+
+    wx *= wx; wx *= wx;
+    wy *= wy; wy *= wy;
+    wz *= wz; wz *= wz;
+    ww *= ww; ww *= ww;
+
+    return (dx * wx + dy * wy + dz * wz + dw * ww) * 52.0;
+  }
+
+  var colorAnim = { from: MODE_COLORS.focus, to: MODE_COLORS.focus, start: 0, duration: 500 };
+  function setModeColor(mode, now) {
+    colorAnim.from = currentLerpedColor(now);
+    colorAnim.to = MODE_COLORS[mode];
+    colorAnim.start = now;
+  }
+  function currentLerpedColor(now) {
+    var t = colorAnim.duration ? clamp01((now - colorAnim.start) / colorAnim.duration) : 1;
+    return lerpSet(colorAnim.from, colorAnim.to, t);
+  }
+
+  // ── Actions utilisateur ───────────────────────────────────
+  function updateControlsUI() {
+    startPauseBtn.textContent = state.session.running ? 'Pause' : 'Démarrer';
+    modeSwitchBtn.textContent = MODE_LABELS[state.session.mode];
+    modeSwitchBtn.classList.toggle('is-break', state.session.mode !== 'focus');
+  }
+
+  function startPause() {
+    var s = state.session;
+    if (s.running) {
+      s.remainingMs = Math.max(0, s.endTimestamp - Date.now());
+      s.running = false;
+      s.endTimestamp = null;
+    } else {
+      ensureAudioCtx();
+      if (s.remainingMs <= 0) s.remainingMs = s.durationMs;
+      s.endTimestamp = Date.now() + s.remainingMs;
+      s.running = true;
+    }
+    persist();
+    updateControlsUI();
+  }
+
+  function resetCurrent() {
+    var s = state.session;
+    s.running = false;
+    s.endTimestamp = null;
+    s.durationMs = modeDurationMs(s.mode, state.settings);
+    s.remainingMs = s.durationMs;
+    persist();
+    updateControlsUI();
+  }
+
+  function completeInterval(playSound) {
+    var s = state.session;
+    advanceMode();
+    s.durationMs = modeDurationMs(s.mode, state.settings);
+    if (playSound) playChime();
+    setModeColor(s.mode, performance.now());
+    if (state.settings.autoStartNext) {
+      s.remainingMs = s.durationMs;
+      s.running = true;
+      s.endTimestamp = Date.now() + s.remainingMs;
+    } else {
+      s.remainingMs = s.durationMs;
+      s.running = false;
+      s.endTimestamp = null;
+    }
+    persist();
+    updateControlsUI();
+  }
+
+  function skip() {
+    completeInterval(false);
+  }
+
+  function selectMode(mode) {
+    var s = state.session;
+    if (s.mode === mode && !s.running) return;
+    s.mode = mode;
+    s.running = false;
+    s.endTimestamp = null;
+    s.durationMs = modeDurationMs(mode, state.settings);
+    s.remainingMs = s.durationMs;
+    setModeColor(mode, performance.now());
+    persist();
+    updateControlsUI();
+  }
+
+  function cycleMode() {
+    var idx = MODE_ORDER.indexOf(state.session.mode);
+    var next = MODE_ORDER[(idx + 1) % MODE_ORDER.length];
+    selectMode(next);
+  }
+
+  startPauseBtn.addEventListener('click', startPause);
+  resetBtn.addEventListener('click', resetCurrent);
+  skipBtn.addEventListener('click', skip);
+  modeSwitchBtn.addEventListener('click', cycleMode);
+
+  // ── Modale réglages ───────────────────────────────────────
+  // Positionne un slider + son affichage de valeur à côté du label
+  function _setRange(input, val) {
+    input.value = val;
+    var out = document.getElementById(input.id + '-val');
+    if (out) out.textContent = input.value;
+  }
+
+  // ── Presets de la sphère (plusieurs configs nommées, sauvegardées à part
+  // des réglages courants) ──────────────────────────────────────────────
+  var PRESETS_KEY = 'pomodoro_presets';
+  var SPHERE_FIELDS = ['planetDensity', 'planetSpinSpeed', 'noiseAmpLarge', 'noiseFreqLarge', 'noiseAmpDetail', 'noiseFreqDetail', 'planetReactivity'];
+
+  function loadPresets() {
+    try {
+      var raw = localStorage.getItem(PRESETS_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (err) {
+      logAppError('loadPresets: JSON.parse a échoué sur pomodoro_presets', err);
+      return [];
+    }
+  }
+  function savePresets(list) {
+    try {
+      localStorage.setItem(PRESETS_KEY, JSON.stringify(list));
+    } catch (err) {
+      logAppError('savePresets: échec localStorage.setItem', err);
+    }
+  }
+  function renderPresetOptions(selectName) {
+    var presets = loadPresets();
+    presetSelect.innerHTML = '<option value="">— Presets enregistrés —</option>';
+    presets.forEach(function (p) {
+      var opt = document.createElement('option');
+      opt.value = p.name;
+      opt.textContent = p.name;
+      presetSelect.appendChild(opt);
+    });
+    if (selectName) presetSelect.value = selectName;
+  }
+  function currentSphereSlidersAsSettings() {
+    return {
+      planetDensity:    Math.min(8000, Math.max(500, parseInt(fPlanetDensity.value, 10) || 4500)),
+      planetSpinSpeed:  Math.min(0.02, Math.max(0, parseFloat(fPlanetSpin.value) || 0)),
+      noiseAmpLarge:    Math.min(0.3, Math.max(0, parseFloat(fNoiseLarge.value) || 0)),
+      noiseFreqLarge:   Math.min(0.05, Math.max(0, parseFloat(fNoiseLargeFreq.value) || 0)),
+      noiseAmpDetail:   Math.min(0.5, Math.max(0, parseFloat(fNoiseDetail.value) || 0)),
+      noiseFreqDetail:  Math.min(5, Math.max(0, parseFloat(fNoiseDetailFreq.value) || 0)),
+      planetReactivity: Math.min(0.2, Math.max(0, parseFloat(fPlanetReactivity.value) || 0))
+    };
+  }
+  presetSaveBtn.addEventListener('click', function () {
+    var name = presetNameInput.value.trim();
+    if (!name) { presetNameInput.focus(); return; }
+    var presets = loadPresets();
+    var settingsSnapshot = currentSphereSlidersAsSettings();
+    var idx = presets.findIndex(function (p) { return p.name === name; });
+    if (idx > -1) presets[idx] = { name: name, settings: settingsSnapshot };
+    else presets.push({ name: name, settings: settingsSnapshot });
+    savePresets(presets);
+    renderPresetOptions(name);
+    presetNameInput.value = '';
+  });
+  presetLoadBtn.addEventListener('click', function () {
+    var name = presetSelect.value;
+    if (!name) return;
+    var preset = loadPresets().find(function (p) { return p.name === name; });
+    if (!preset) return;
+    SPHERE_FIELDS.forEach(function (key) {
+      if (preset.settings[key] == null) return;
+      var input = { planetDensity: fPlanetDensity, planetSpinSpeed: fPlanetSpin, noiseAmpLarge: fNoiseLarge,
+        noiseFreqLarge: fNoiseLargeFreq, noiseAmpDetail: fNoiseDetail, noiseFreqDetail: fNoiseDetailFreq,
+        planetReactivity: fPlanetReactivity }[key];
+      _setRange(input, preset.settings[key]);
+    });
+  });
+  presetDeleteBtn.addEventListener('click', function () {
+    var name = presetSelect.value;
+    if (!name) return;
+    savePresets(loadPresets().filter(function (p) { return p.name !== name; }));
+    renderPresetOptions();
+  });
+
+  function openSettings() {
+    fFocus.value = state.settings.focusMin;
+    fShort.value = state.settings.shortBreakMin;
+    fLong.value = state.settings.longBreakMin;
+    fCycle.value = state.settings.sessionsBeforeLongBreak;
+    fSound.checked = state.settings.soundOn;
+    fAuto.checked = state.settings.autoStartNext;
+    _setRange(fPlanetDensity, state.settings.planetDensity);
+    _setRange(fPlanetSpin, state.settings.planetSpinSpeed);
+    _setRange(fNoiseLarge, state.settings.noiseAmpLarge);
+    _setRange(fNoiseLargeFreq, state.settings.noiseFreqLarge);
+    _setRange(fNoiseDetail, state.settings.noiseAmpDetail);
+    _setRange(fNoiseDetailFreq, state.settings.noiseFreqDetail);
+    _setRange(fPlanetReactivity, state.settings.planetReactivity);
+    renderPresetOptions();
+    settingsOverlay.classList.add('open');
+  }
+  function closeSettings() { settingsOverlay.classList.remove('open'); }
+
+  function saveSettings() {
+    var focusMin = Math.min(180, Math.max(1, parseInt(fFocus.value, 10) || 25));
+    var shortMin = Math.min(60, Math.max(1, parseInt(fShort.value, 10) || 5));
+    var longMin = Math.min(120, Math.max(1, parseInt(fLong.value, 10) || 15));
+    var cycle = Math.min(12, Math.max(1, parseInt(fCycle.value, 10) || 4));
+    var planetDensity    = Math.min(8000, Math.max(500, parseInt(fPlanetDensity.value, 10) || 4500));
+    var planetSpinSpeed  = Math.min(0.02, Math.max(0, parseFloat(fPlanetSpin.value) || 0));
+    var noiseAmpLarge    = Math.min(0.3, Math.max(0, parseFloat(fNoiseLarge.value) || 0));
+    var noiseFreqLarge   = Math.min(0.05, Math.max(0, parseFloat(fNoiseLargeFreq.value) || 0));
+    var noiseAmpDetail   = Math.min(0.5, Math.max(0, parseFloat(fNoiseDetail.value) || 0));
+    var noiseFreqDetail  = Math.min(5, Math.max(0, parseFloat(fNoiseDetailFreq.value) || 0));
+    var planetReactivity = Math.min(0.2, Math.max(0, parseFloat(fPlanetReactivity.value) || 0));
+
+    state.settings.focusMin = focusMin;
+    state.settings.shortBreakMin = shortMin;
+    state.settings.longBreakMin = longMin;
+    state.settings.sessionsBeforeLongBreak = cycle;
+    state.settings.soundOn = !!fSound.checked;
+    state.settings.autoStartNext = !!fAuto.checked;
+    state.settings.planetDensity = planetDensity;
+    state.settings.planetSpinSpeed = planetSpinSpeed;
+    state.settings.noiseAmpLarge = noiseAmpLarge;
+    state.settings.noiseFreqLarge = noiseFreqLarge;
+    state.settings.noiseAmpDetail = noiseAmpDetail;
+    state.settings.noiseFreqDetail = noiseFreqDetail;
+    state.settings.planetReactivity = planetReactivity;
+
+    // Applique les réglages de la sphère à la scène en cours (la densité
+    // régénère le nuage de points, les autres sont lues à chaque frame).
+    PLANET_SPIN_SPEED = planetSpinSpeed;
+    NOISE_AMP_1 = noiseAmpLarge;
+    NOISE_FREQ_1 = noiseFreqLarge;
+    NOISE_AMP_2 = noiseAmpDetail;
+    NOISE_FREQ_2 = noiseFreqDetail;
+    PLANET_REPULSE_STRENGTH = planetReactivity;
+    if (planetDensity !== PLANET_N) {
+      PLANET_N = planetDensity;
+      planetPts = buildPlanetPts();
+      planetDisplacements = planetPts.map(function () { return { x: 0, y: 0, z: 0 }; });
+    }
+
+    var s = state.session;
+    if (!s.running) {
+      s.durationMs = modeDurationMs(s.mode, state.settings);
+      s.remainingMs = s.durationMs;
+    }
+    persist();
+    updateControlsUI();
+    closeSettings();
+  }
+
+  settingsBtn.addEventListener('click', openSettings);
+  settingsClose.addEventListener('click', closeSettings);
+  settingsCancel.addEventListener('click', closeSettings);
+  settingsSave.addEventListener('click', saveSettings);
+  settingsOverlay.addEventListener('click', function (e) {
+    if (e.target === settingsOverlay) closeSettings();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && settingsOverlay.classList.contains('open')) closeSettings();
+  });
+
+  // ── Sphère de particules (astre) — distribution Fibonacci ──
+  var SPHERE_N = 650;
+  var spherePts = (function () {
+    var pts = [];
+    var golden = Math.PI * (3 - Math.sqrt(5));
+    for (var i = 0; i < SPHERE_N; i++) {
+      var y = 1 - (i / (SPHERE_N - 1)) * 2;
+      var r = Math.sqrt(Math.max(0, 1 - y * y));
+      var theta = golden * i;
+      pts.push({ x: Math.cos(theta) * r, y: y, z: Math.sin(theta) * r });
+    }
+    return pts;
+  })();
+  var displacements = spherePts.map(function () { return { x: 0, y: 0, z: 0 }; });
+  var astreRot = 0;
+
+  // ── Interaction souris (répulsion des particules) ─────────
+  var mouse = { x: 0, y: 0, active: false };
+  var REPULSE_STRENGTH = 0.05, FRICTION = 0.94, RETURN_FORCE = 0.008;
+  function updateMouseFromEvent(clientX, clientY) {
+    var rect = canvas.getBoundingClientRect();
+    mouse.x = clientX - rect.left;
+    mouse.y = clientY - rect.top;
+    mouse.active = true;
+  }
+  canvas.addEventListener('mousemove', function (e) { updateMouseFromEvent(e.clientX, e.clientY); });
+  canvas.addEventListener('mouseleave', function () { mouse.active = false; });
+  canvas.addEventListener('touchmove', function (e) {
+    if (e.touches[0]) { updateMouseFromEvent(e.touches[0].clientX, e.touches[0].clientY); }
+  }, { passive: true });
+  canvas.addEventListener('touchend', function () { mouse.active = false; });
+
+  // ── Planète en particules (mini "Particle Sphere") ─────────
+  // Sert désormais de "soleil" fixe au centre de la scène (l'astre Fibonacci
+  // ci-dessus est lui l'objet qui orbite) — cf. drawSun/drawAstre plus bas.
+  var PLANET_N = state.settings.planetDensity || 4500;
+  function buildPlanetPts() {
+    var pts = [];
+    var golden = Math.PI * (3 - Math.sqrt(5));
+    for (var i = 0; i < PLANET_N; i++) {
+      var y = 1 - (i / (PLANET_N - 1)) * 2;
+      var r = Math.sqrt(Math.max(0, 1 - y * y));
+      var theta = golden * i;
+      pts.push({ x: Math.cos(theta) * r, y: y, z: Math.sin(theta) * r });
+    }
+    return pts;
+  }
+  var planetPts = buildPlanetPts();
+  var planetDisplacements = planetPts.map(function () { return { x: 0, y: 0, z: 0 }; });
+  var planetSpin = 0;
+  var PLANET_SPIN_SPEED = state.settings.planetSpinSpeed != null ? state.settings.planetSpinSpeed : 0.004;
+  var PLANET_REPULSE_STRENGTH = state.settings.planetReactivity != null ? state.settings.planetReactivity : 0.06;
+  var PLANET_FRICTION = 0.94, PLANET_RETURN_FORCE = 0.01;
+  var PLANET_DRAG_SENSITIVITY = 0.006;
+  var isDraggingSun = false, dragLastX = 0;
+
+  // ── Déplacement par bruit (façon "particle-sphere noise displacement") ──
+  var NOISE_SPD_1 = 0.68;
+  var NOISE_AMP_1  = state.settings.noiseAmpLarge  != null ? state.settings.noiseAmpLarge  : 0.07;
+  var NOISE_FREQ_1 = state.settings.noiseFreqLarge != null ? state.settings.noiseFreqLarge : 0.01;
+  var NOISE_SPD_2 = 1.42;
+  var NOISE_AMP_2  = state.settings.noiseAmpDetail  != null ? state.settings.noiseAmpDetail  : 0.2;
+  var NOISE_FREQ_2 = state.settings.noiseFreqDetail != null ? state.settings.noiseFreqDetail : 1.9;
+  var NOISE_COLOR_1 = hexToRgb('#170b33');
+  var NOISE_COLOR_4 = hexToRgb('#f5f3ff');
+
+  function planetDisplacement(nx, ny, nz, time) {
+    var t1 = time * NOISE_SPD_1;
+    var d1 = snoise3(nx * NOISE_FREQ_1 + t1, ny * NOISE_FREQ_1 + t1, nz * NOISE_FREQ_1 + t1) * NOISE_AMP_1;
+    var t2 = time * NOISE_SPD_2 * 0.6;
+    var d2 = snoise3(nx * NOISE_FREQ_2 + 5.2 - t2, ny * NOISE_FREQ_2 + 1.3 - t2, nz * NOISE_FREQ_2 + 2.8 - t2) * NOISE_AMP_2;
+    return d1 + d2;
+  }
+  // color1 (sombre) et color4 (blanc) restent fixes comme ancrages ; color2/color3
+  // (les teintes intermédiaires) suivent la couleur du mode en cours (Focus/Pause),
+  // déjà lissée en transition par colorAnim — la planète change donc de couleur avec le mode.
+  var _planetColorScratch = { r: 0, g: 0, b: 0 };
+
+  // Palette de couleurs précalculée pour la sphère centrale : planetNoiseColor
+  // ne dépend au fond que d'un seul paramètre continu (t, dérivé du bruit,
+  // toujours ramené dans [0,1] par smoothstep) et de la couleur du mode en
+  // cours (fixe le temps d'une frame). Plutôt que de construire une chaîne
+  // "rgba(...)" par point — jusqu'à plusieurs milliers de fois par frame,
+  // à 60-160 fps selon l'écran — on précalcule ici une palette de
+  // PALETTE_SIZE couleurs (une seule fois par frame, pas par point) et
+  // chaque point se contente d'un indexage entier dans ce tableau. L'alpha
+  // (qui varie aussi par point, selon la profondeur) passe par
+  // ctx.globalAlpha plutôt que d'être intégré à la chaîne, pour ne pas
+  // avoir à multiplier la taille de la palette par le nombre de niveaux
+  // d'alpha. C'était la source du freeze périodique : générer et parser
+  // une chaîne de couleur unique par point, par frame, saturait le tas JS
+  // bien plus vite qu'estimé (surtout sur un écran >60Hz).
+  var PALETTE_SIZE = 128;
+  var _sunColorPalette = new Array(PALETTE_SIZE);
+  function buildSunColorPalette(modeColor) {
+    for (var i = 0; i < PALETTE_SIZE; i++) {
+      var t = i / (PALETTE_SIZE - 1);
+      var out = _planetColorScratch;
+      lerpC(NOISE_COLOR_1, modeColor.core, smoothstep(0.0, 0.75, t), out);
+      lerpC(out, modeColor.ring, smoothstep(0.5, 0.75, t), out);
+      lerpC(out, NOISE_COLOR_4, smoothstep(0.55, 1.0, t), out);
+      _sunColorPalette[i] = 'rgb(' + (out.r | 0) + ',' + (out.g | 0) + ',' + (out.b | 0) + ')';
+    }
+  }
+
+  // Le soleil (visuel ex-"planète") est toujours fixe au centre (cx, cy) : le
+  // survol/glisser se teste donc directement contre cx/cy/sunRadius, pas
+  // besoin de mémoriser sa position d'un frame à l'autre comme avant.
+  function hitTestSun(clientX, clientY) {
+    var rect = canvas.getBoundingClientRect();
+    var mx = clientX - rect.left, my = clientY - rect.top;
+    var dx = mx - cx, dy = my - cy;
+    return (dx * dx + dy * dy) < Math.pow(sunRadius * 2.5, 2) ? mx : null;
+  }
+  canvas.addEventListener('mousedown', function (e) {
+    var mx = hitTestSun(e.clientX, e.clientY);
+    if (mx !== null) { isDraggingSun = true; dragLastX = mx; }
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (!isDraggingSun) return;
+    var rect = canvas.getBoundingClientRect();
+    var mx = e.clientX - rect.left;
+    planetSpin += (mx - dragLastX) * PLANET_DRAG_SENSITIVITY;
+    dragLastX = mx;
+  });
+  window.addEventListener('mouseup', function () { isDraggingSun = false; });
+  canvas.addEventListener('touchstart', function (e) {
+    var t = e.touches[0]; if (!t) return;
+    var mx = hitTestSun(t.clientX, t.clientY);
+    if (mx !== null) { isDraggingSun = true; dragLastX = mx; }
+  }, { passive: true });
+  window.addEventListener('touchmove', function (e) {
+    if (!isDraggingSun) return;
+    var t = e.touches[0]; if (!t) return;
+    var rect = canvas.getBoundingClientRect();
+    var mx = t.clientX - rect.left;
+    planetSpin += (mx - dragLastX) * PLANET_DRAG_SENSITIVITY;
+    dragLastX = mx;
+  }, { passive: true });
+  window.addEventListener('touchend', function () { isDraggingSun = false; });
+
+  // ── Géométrie de scène (recalculée au resize) ─────────────
+  var W = 0, H = 0, dpr = 1, cx = 0, cy = 0;
+  var sunRadius = 100, ORBIT_R = 180, PERSPECTIVE = 720, TILT = 0.5, TILT_SIDE = 0.18;
+  // Tracé (Path2D) du fin anneau complet en pointillé de fond : sa forme ne
+  // dépend que de la géométrie (cx/cy/ORBIT_R), jamais de l'avancement de la
+  // session — reconstruit seulement au resize (fit()) au lieu d'être
+  // recalculé à chaque frame (~97 points), ce qui allégeait sensiblement la
+  // pression sur le ramasse-miettes JS.
+  var faintOrbitPath = null;
+  // Bascule propre au petit astre en orbite (indépendante de celle de l'orbite
+  // elle-même) : on part de -TILT (sens inversé par rapport à l'orbite) à
+  // ajuster selon ton retour visuel.
+  var ASTRE_TILT = -TILT;
+
+  // Rotations génériques (mêmes conventions que l'ancien code inline de
+  // projectOrbit) — partagées avec l'astre central pour que son axe de spin
+  // reste parallèle à l'axe de rotation (normale du plan) de l'orbite.
+  // Mutent v en place et le retournent (au lieu d'allouer un nouvel objet à
+  // chaque appel) : appelées ~60x/s en cascade pour des dizaines de points,
+  // ces allocations répétées mettaient une forte pression sur le ramasse-
+  // miettes JS, provoquant un micro-freeze périodique de l'animation. v est
+  // toujours soit un objet fraîchement créé pour l'itération en cours, soit
+  // le résultat d'un rotX/rotY précédent dans la même chaîne — jamais
+  // partagé/retenu au-delà, donc la mutation en place est sans risque.
+  function rotX(v, a) {
+    var c = Math.cos(a), s = Math.sin(a);
+    var ny = v.y * c - v.z * s, nz = v.y * s + v.z * c;
+    v.y = ny; v.z = nz;
+    return v;
+  }
+  function rotY(v, a) {
+    var c = Math.cos(a), s = Math.sin(a);
+    var nx = v.x * c + v.z * s, nz = -v.x * s + v.z * c;
+    v.x = nx; v.z = nz;
+    return v;
+  }
+  function tiltPoint(x, y, z) {
+    return rotY(rotX({ x: x, y: y, z: z }, TILT), TILT_SIDE);
+  }
+
+  // Pool d'objets point réutilisés par projectOrbit : buildRingSegments (121
+  // appels/frame) + buildCometTrail (65) + l'astre (1) restent tous vivants
+  // simultanément le temps d'un draw() (retenus dans des tableaux, lus après
+  // coup par drawRingSegments/drawCometTrail/drawAstre), donc un seul scratch
+  // partagé ne suffit pas ici — d'où ce pool, remis à zéro au début de
+  // chaque draw(). Sans ça, ~187 objets alloués à chaque frame (60x/s)
+  // suffisaient à saturer le tas JS toutes les 3-4s (ramasse-miettes bloquant
+  // périodiquement le thread, cause du freeze observé).
+  var _orbitPtPool = (function () {
+    var pool = [];
+    for (var i = 0; i < 256; i++) pool.push({ x: 0, y: 0, scale: 0, z: 0, t: 0 });
+    return pool;
+  })();
+  var _orbitPtPoolIdx = 0;
+  function _resetOrbitPtPool() { _orbitPtPoolIdx = 0; }
+  function projectOrbit(theta) {
+    var t = tiltPoint(Math.cos(theta) * ORBIT_R, 0, Math.sin(theta) * ORBIT_R);
+    var scale = PERSPECTIVE / (PERSPECTIVE + t.z);
+    var out = _orbitPtPool[_orbitPtPoolIdx % _orbitPtPool.length];
+    _orbitPtPoolIdx++;
+    out.x = cx + t.x * scale; out.y = cy + t.y * scale; out.scale = scale; out.z = t.z;
+    return out;
+  }
+
+  function fit() {
+    // offsetWidth/Height reflètent la taille de mise en page et ignorent le
+    // transform:scale() de l'animation d'entrée du .stage. getBoundingClientRect()
+    // aurait capturé la taille réduite (scale 0.92) pendant cette animation et
+    // l'aurait figée en permanence, désynchronisant l'espace de dessin du canvas
+    // des coordonnées souris (lues, elles, une fois l'animation terminée) — d'où
+    // le décalage entre le curseur et l'effet sur l'astre.
+    var w = stageEl.offsetWidth, h = stageEl.offsetHeight;
+    // Si la mise en page n'est pas encore stabilisée (taille nulle au tout premier
+    // rendu), on réessaie au prochain frame plutôt que de figer une géométrie à 0
+    // (qui propage des NaN en cascade dans toute la scène).
+    if (w < 1 || h < 1) {
+      requestAnimationFrame(fit);
+      return;
+    }
+    dpr = window.devicePixelRatio || 1;
+    W = w; H = h;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    cx = W / 2; cy = H / 2;
+    var S = Math.min(W, H);
+    sunRadius = S * 0.19;
+    ORBIT_R = S * 0.36;
+    PERSPECTIVE = ORBIT_R * 6;
+    var fop = new Path2D();
+    var stepsFO = 96;
+    for (var i = 0; i <= stepsFO; i++) {
+      var pt = projectOrbit((i / stepsFO) * Math.PI * 2);
+      if (i === 0) fop.moveTo(pt.x, pt.y); else fop.lineTo(pt.x, pt.y);
+    }
+    faintOrbitPath = fop;
+  }
+  var ro = new ResizeObserver(fit);
+  ro.observe(stageEl);
+  // Filet de sécurité : certains contextes (redimensionnement de fenêtre, outils de
+  // développement, changement de moniteur/DPI) ne redéclenchent pas toujours le
+  // ResizeObserver de façon fiable, ce qui figeait la géométrie de dessin (astre/orbite/
+  // souris) sur l'ancienne taille — d'où un décalage entre le curseur et les effets.
+  window.addEventListener('resize', fit);
+  fit();
+  // Petite temporisation avant transition CSS pour laisser le premier état (opacity:0) se peindre
+  // (un double rAF serait bloqué si l'onglet est en arrière-plan, setTimeout ne l'est pas).
+  setTimeout(function () { stageEl.classList.add('is-ready'); }, 60);
+
+
+  var _astreScratch = { x: 0, y: 0, z: 0 };
+  var _astreDeltaScratch = { x: 0, y: 0, z: 0 };
+  // Petit astre en orbite (ex-corps central) : `center`/`radius` viennent de
+  // sa position courante sur l'anneau (projectOrbit), plus de cx/cy fixes.
+  function drawAstre(color, center, radius) {
+    var glowR = radius * 2.2;
+    var glow = ctx.createRadialGradient(center.x, center.y, 0, center.x, center.y, glowR);
+    glow.addColorStop(0, rgba(color.core, 0.32));
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(center.x, center.y, glowR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Rayon de répulsion recalculé à partir du rayon courant (qui varie avec
+    // la perspective le long de l'orbite) plutôt qu'une valeur fixe globale.
+    var repulseRadius = radius * 2.6;
+    var repulseRadiusSq = repulseRadius * repulseRadius;
+    for (var i = 0; i < spherePts.length; i++) {
+      var p = spherePts[i];
+      var d = displacements[i];
+      var lx = p.x + d.x, ly = p.y + d.y, lz = p.z + d.z;
+      // Spin propre de l'astre (sens d'origine, inchangé). Bascule dédiée
+      // (indépendante de tiltPoint utilisé par l'orbite) : ASTRE_TILT contrôle
+      // le sens/l'amplitude de l'inclinaison rien que pour l'astre, pour
+      // pouvoir l'ajuster sans toucher au rendu de l'anneau.
+      // Scratch réutilisé (ce point-ci uniquement, consommé avant la fin de
+      // l'itération) au lieu d'un objet {x,y,z} neuf par point — jusqu'à
+      // SPHERE_N (650) allocations/frame en moins.
+      _astreScratch.x = lx; _astreScratch.y = ly; _astreScratch.z = lz;
+      var spun = rotY(_astreScratch, astreRot);
+      var t = rotY(rotX(spun, ASTRE_TILT), TILT_SIDE);
+      var sx = center.x + t.x * radius;
+      var sy = center.y + t.y * radius;
+
+      if (mouse.active) {
+        var mdx = sx - mouse.x, mdy = sy - mouse.y;
+        var distSq = mdx * mdx + mdy * mdy;
+        if (distSq < repulseRadiusSq && distSq > 0.01) {
+          var dist = Math.sqrt(distSq);
+          var force = (repulseRadius - dist) / repulseRadius;
+          // Répulsion exprimée dans le plan écran (delta z inconnu -> 0), puis
+          // ramenée dans le repère local via l'inverse exact de la bascule et
+          // de la rotation propre (angles opposés), pour rester cohérente
+          // avec l'inclinaison appliquée à l'astre.
+          _astreDeltaScratch.x = (mdx / dist) * force * REPULSE_STRENGTH;
+          _astreDeltaScratch.y = (mdy / dist) * force * REPULSE_STRENGTH;
+          _astreDeltaScratch.z = 0;
+          var back = rotX(rotY(_astreDeltaScratch, -TILT_SIDE), -ASTRE_TILT);
+          var local = rotY(back, -astreRot);
+          d.x += local.x; d.y += local.y; d.z += local.z;
+        }
+      }
+      d.x *= FRICTION; d.y *= FRICTION; d.z *= FRICTION;
+      d.x *= (1 - RETURN_FORCE); d.y *= (1 - RETURN_FORCE); d.z *= (1 - RETURN_FORCE);
+
+      var depth = (t.z + 1) / 2; // 0 loin .. 1 proche
+      var alpha = 0.14 + depth * 0.55;
+      var size = 1 + depth * 1.1;
+      ctx.fillStyle = rgba(color.core, alpha);
+      ctx.fillRect(sx - size / 2, sy - size / 2, size, size);
+    }
+  }
+
+  // Soleil fixe au centre (ex-"planète" en orbite) : toujours à (cx, cy),
+  // rayon constant sunRadius — plus de position/échelle venant de l'orbite.
+  function drawSun(color, nowSec) {
+    var radius = sunRadius;
+    var glowR = radius * 2.4;
+
+    var glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+    glow.addColorStop(0, rgba(color.accent, 0.4));
+    glow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (!isDraggingSun) {
+      planetSpin += PLANET_SPIN_SPEED;
+    }
+
+    var cosP = Math.cos(planetSpin), sinP = Math.sin(planetSpin);
+    var planetRepulseRadius = radius * 3.2;
+    var planetRepulseRadiusSq = planetRepulseRadius * planetRepulseRadius;
+
+    // Palette reconstruite une fois pour cette frame (128 couleurs, pas une
+    // par point) — cf. commentaire sur buildSunColorPalette plus haut.
+    buildSunColorPalette(color);
+    var paletteMaxIdx = PALETTE_SIZE - 1;
+
+    for (var i = 0; i < planetPts.length; i++) {
+      var pp = planetPts[i];
+      var pd = planetDisplacements[i];
+      var noiseDisp = planetDisplacement(pp.x, pp.y, pp.z, nowSec);
+      var noiseScale = 1 + noiseDisp;
+      var plx = pp.x * noiseScale + pd.x, ply = pp.y * noiseScale + pd.y, plz = pp.z * noiseScale + pd.z;
+      var prx = plx * cosP + plz * sinP;
+      var prz = -plx * sinP + plz * cosP;
+      var wx = cx + prx * radius;
+      var wy = cy + ply * radius;
+
+      if (mouse.active) {
+        var mdx2 = wx - mouse.x, mdy2 = wy - mouse.y;
+        var distSq2 = mdx2 * mdx2 + mdy2 * mdy2;
+        if (distSq2 < planetRepulseRadiusSq && distSq2 > 0.01) {
+          var dist2 = Math.sqrt(distSq2);
+          var force2 = (planetRepulseRadius - dist2) / planetRepulseRadius;
+          var dRx = (mdx2 / dist2) * force2 * PLANET_REPULSE_STRENGTH;
+          var dRy = (mdy2 / dist2) * force2 * PLANET_REPULSE_STRENGTH;
+          pd.x += dRx * cosP;
+          pd.z += dRx * sinP;
+          pd.y += dRy;
+        }
+      }
+      pd.x *= PLANET_FRICTION; pd.y *= PLANET_FRICTION; pd.z *= PLANET_FRICTION;
+      pd.x *= (1 - PLANET_RETURN_FORCE); pd.y *= (1 - PLANET_RETURN_FORCE); pd.z *= (1 - PLANET_RETURN_FORCE);
+
+      var depth2 = (prz + 1) / 2; // 0 loin .. 1 proche
+      var alpha2 = 0.55 + depth2 * 0.45;
+      var size2 = Math.max(0.9, 1.3 + depth2 * 0.9);
+      // Indexage dans la palette précalculée au lieu d'une chaîne de couleur
+      // par point ; l'alpha (qui varie lui aussi par point) passe par
+      // globalAlpha plutôt que d'être intégré à la chaîne.
+      var t = smoothstep(-0.3, 0.3, noiseDisp);
+      var paletteIdx = (t * paletteMaxIdx + 0.5) | 0;
+      ctx.fillStyle = _sunColorPalette[paletteIdx];
+      ctx.globalAlpha = alpha2;
+      ctx.fillRect(wx - size2 / 2, wy - size2 / 2, size2, size2);
+    }
+    ctx.globalAlpha = 1; // ne pas laisser fuir cet état vers les autres dessins de la frame
+  }
+
+  function buildRingSegments(theta) {
+    var steps = 120;
+    var segments = [];
+    var current = null;
+    var prevPt = null;
+    for (var i = 0; i <= steps; i++) {
+      var pt = projectOrbit((i / steps) * theta);
+      var front = pt.z < 0;
+      if (!current || current.front !== front) {
+        current = { front: front, pts: [] };
+        // relie le nouveau segment au dernier point du précédent, sinon le trait
+        // de raccord au point de transition avant/arrière n'est jamais dessiné
+        // (ni par l'ancien segment, ni par le nouveau) et l'anneau paraît coupé.
+        if (prevPt) current.pts.push(prevPt);
+        segments.push(current);
+      }
+      current.pts.push(pt);
+      prevPt = pt;
+    }
+    return segments;
+  }
+
+  function drawRingSegments(segments, front, color) {
+    for (var i = 0; i < segments.length; i++) {
+      var seg = segments[i];
+      if (seg.front !== front) continue;
+      ctx.beginPath();
+      for (var j = 0; j < seg.pts.length; j++) {
+        var pt = seg.pts[j];
+        if (j === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.strokeStyle = rgba(color.ring, 0.32);
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    }
+  }
+
+  function drawFaintFullOrbit() {
+    if (!faintOrbitPath) return;
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth = 1;
+    ctx.stroke(faintOrbitPath);
+  }
+
+  // ── Traînée façon comète derrière l'astre en orbite ────────
+  // Vient s'ajouter par-dessus le trait de progression (buildRingSegments) :
+  // celui-ci reste le repère fixe et lisible de l'avancement de la session,
+  // la traînée n'est qu'un effet cosmétique local juste derrière l'astre.
+  // Segment récent tracé comme une polyligne à largeur/opacité dégradées
+  // (repris de orbit-comete.html) plutôt que des points isolés.
+  var TRAIL_WINDOW_FRAC = 0.22; // fraction d'une révolution couverte par la traînée
+
+  function buildCometTrail(theta) {
+    var thetaWindow = Math.PI * 2 * TRAIL_WINDOW_FRAC;
+    var thetaStart = Math.max(0, theta - thetaWindow);
+    var steps = 64;
+    var backTrail = [], frontTrail = [];
+    for (var i = 0; i <= steps; i++) {
+      var frac = i / steps; // 0 = bout de la traînée, 1 = à l'astre
+      var phi = thetaStart + frac * (theta - thetaStart);
+      var pt = projectOrbit(phi);
+      // pt vient du pool (slot dédié à cet appel) : on y ajoute `.t` au lieu
+      // d'allouer un objet wrapper séparé.
+      pt.t = frac;
+      if (pt.z < 0) frontTrail.push(pt); else backTrail.push(pt);
+    }
+    return { back: backTrail, front: frontTrail };
+  }
+
+  function drawCometTrail(points, color) {
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (var i = 1; i < points.length; i++) {
+      var p0 = points[i - 1], p1 = points[i];
+      var alpha = Math.pow(p1.t, 1.6) * 0.75; // dégradé vers transparent en s'éloignant de l'astre
+      if (alpha < 0.008) continue;
+      ctx.strokeStyle = rgba(color.ring, alpha);
+      ctx.lineWidth = 0.6 + p1.t * 3.4;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+    }
+  }
+
+  function draw(progress, color, nowSec) {
+    _resetOrbitPtPool();
+    ctx.clearRect(0, 0, W, H);
+    drawFaintFullOrbit();
+
+    var theta = progress * Math.PI * 2;
+    var ringSegments = buildRingSegments(theta);
+    var trail = buildCometTrail(theta);
+    var orbitPos = projectOrbit(theta);
+    var astreRadiusNow = Math.max(6, W * 0.044 * Math.max(0.5, Math.min(1.8, orbitPos.scale)));
+
+    if (orbitPos.z >= 0) {
+      drawRingSegments(ringSegments, false, color);
+      drawCometTrail(trail.back, color);
+      drawAstre(color, orbitPos, astreRadiusNow);
+      drawSun(color, nowSec);
+      drawRingSegments(ringSegments, true, color);
+      drawCometTrail(trail.front, color);
+    } else {
+      drawRingSegments(ringSegments, false, color);
+      drawCometTrail(trail.back, color);
+      drawSun(color, nowSec);
+      drawRingSegments(ringSegments, true, color);
+      drawCometTrail(trail.front, color);
+      drawAstre(color, orbitPos, astreRadiusNow);
+    }
+  }
+
+  // ── Compteur de sessions ──────────────────────────────────
+  function renderSessionDots() {
+    var cyc = state.settings.sessionsBeforeLongBreak;
+    var filled = state.session.mode === 'longBreak' ? cyc : (state.session.focusCount % cyc);
+    dotsEl.innerHTML = '';
+    for (var i = 0; i < cyc; i++) {
+      var d = document.createElement('span');
+      d.className = 'session-dot' + (i < filled ? ' filled' : '');
+      dotsEl.appendChild(d);
+    }
+  }
+  var lastDotsSignature = '';
+
+  // ── Moteur d'état (avancement de session, son, titre) ──────
+  // Tourne via setInterval (pas requestAnimationFrame) car les navigateurs mettent en
+  // pause rAF quand l'onglet est en arrière-plan — le minuteur ne passerait alors jamais
+  // en pause suivante ni ne jouerait le carillon tant qu'on ne revient pas sur l'onglet.
+  // setInterval continue de tourner (au pire ralenti à ~1/s) même en arrière-plan.
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+  function engineTick() {
+    var s = state.session;
+    if (s.running) {
+      var remaining = s.endTimestamp - Date.now();
+      if (remaining <= 0) {
+        completeInterval(true);
+        s = state.session;
+      } else {
+        s.remainingMs = remaining;
+      }
+    }
+
+    var totalSec = Math.max(0, Math.ceil(s.remainingMs / 1000));
+    var mm = Math.floor(totalSec / 60), ss = totalSec % 60;
+    var timeStr = pad2(mm) + ':' + pad2(ss);
+    timeEl.textContent = timeStr;
+    modeLabelEl.textContent = MODE_LABELS[s.mode];
+    document.title = timeStr + ' · ' + MODE_LABELS[s.mode] + ' — Pomodoro';
+
+    var dotsSig = s.mode + ':' + (s.mode === 'longBreak' ? 'full' : s.focusCount) + ':' + state.settings.sessionsBeforeLongBreak;
+    if (dotsSig !== lastDotsSignature) { renderSessionDots(); lastDotsSignature = dotsSig; }
+    // Pas de persist() ici : endTimestamp (ce qui compte pour reprendre après
+    // un rechargement, cf. resolveOnLoad) est un timestamp absolu déjà
+    // sauvegardé une fois pour toutes par startPause()/completeInterval() au
+    // moment du démarrage — remainingMs n'est qu'une valeur d'affichage
+    // recalculée à chaque tick, jamais relue au chargement pour une session
+    // en cours. Réécrire dans localStorage toutes les ~2s ici était donc
+    // pur gaspillage — et sur une origine avec beaucoup de données déjà
+    // stockées (mois de trades/budget), ce gaspillage devenait un vrai coût :
+    // c'était la cause du freeze périodique, pas le rendu canvas.
+  }
+
+  setInterval(engineTick, 1000);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) engineTick();
+  });
+
+  // ── Boucle de rendu visuel (canvas, ~60 fps quand l'onglet est visible) ──
+  function tick(now) {
+    var s = state.session;
+    // Recalculé à chaque frame depuis endTimestamp (comme avant), pas depuis
+    // s.remainingMs qui n'est mis à jour qu'1×/s par engineTick — sinon la
+    // planète saute d'une position à l'autre au lieu de bouger en continu.
+    var displayRemainingMs = s.remainingMs;
+    if (s.running && s.endTimestamp) {
+      displayRemainingMs = Math.max(0, s.endTimestamp - Date.now());
+    }
+    var progress = clamp01(1 - displayRemainingMs / s.durationMs);
+    var color = currentLerpedColor(now);
+    draw(progress, color, now / 1000);
+    astreRot += 0.0035;
+    requestAnimationFrame(tick);
+  }
+
+  updateControlsUI();
+  renderSessionDots();
+  lastDotsSignature = state.session.mode + ':' + (state.session.mode === 'longBreak' ? 'full' : state.session.focusCount) + ':' + state.settings.sessionsBeforeLongBreak;
+  engineTick();
+  requestAnimationFrame(tick);
+
+  window.addEventListener('beforeunload', function () { persist(); });
+})();
+</script>
+</body>
+</html>
