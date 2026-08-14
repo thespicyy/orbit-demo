@@ -4012,9 +4012,27 @@ function renderPortfolioChart() {
   const labels=portfolioPoints.map(p=>p.date), values=portfolioPoints.map(p=>p.value);
   const isUp=values[values.length-1]>=values[0]; const color=isUp?'#10b981':'#ef4444';
   _portfolioRevealColor = color;
+  // Axe X : même traitement que l'Equity Curve (dates courtes « 14 aoû », année
+  // au changement d'année, nb de ticks bridé) pour éviter le chevauchement.
+  const MOIS = ['jan','fév','mar','avr','mai','juin','juil','aoû','sep','oct','nov','déc'];
   const portOpts = { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, tooltip:{enabled:false}},
     scales:{
-      x:{display:true, ticks:{color:chartTick(),font:{family:'Inter',size:11},maxTicksLimit:12}, grid:{display:false}, border:{display:false}},
+      x:{display:true, grid:{display:false}, border:{display:false},
+        ticks:{
+          color:chartTick(), font:{family:'Inter',size:11}, maxTicksLimit:8, autoSkip:true,
+          callback:function(val,index,ticks){
+            const label=this.getLabelForValue(val);
+            if(!label) return '';
+            const d=new Date(String(label).split(' ')[0]);
+            if(isNaN(d)) return label;
+            if(index>0 && ticks[index-1]){
+              const prev=new Date((this.getLabelForValue(ticks[index-1].value)||'').split(' ')[0]);
+              if(!isNaN(prev) && prev.getFullYear()!==d.getFullYear()) return String(d.getFullYear());
+            }
+            return `${d.getDate()} ${MOIS[d.getMonth()]}`;
+          }
+        }
+      },
       y:{ticks:{color:chartTick(),font:{family:'Inter',size:11},callback:v=>v.toLocaleString('fr-FR')+'$'}, grid:{display:false}, border:{display:false}}
     }
   };
